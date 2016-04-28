@@ -4,7 +4,7 @@ reloading not only the extension, but Burp Suite entirely. All values of each ex
 configuration tab will be saved, along with the order of all tabs.</h3>
 <h2>Adding configuration tabs</h2>
 &nbsp;&nbsp;&nbsp;&nbsp;- Click '+' to add an empty tab; or<br>
-&nbsp;&nbsp;&nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose "Send to CPH".<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This will create as many tabs as the number of selected requests, and populate each tab<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with each selected request to be issued for parameter extraction.<br>
 <br>
