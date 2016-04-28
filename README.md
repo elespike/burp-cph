@@ -12,7 +12,7 @@
 ### Adding configuration tabs
 
 - Click '+' to add an empty tab; or
-Select one or many requests from anywhere in Burp, right-click, and choose "Send to CPH".
+Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.
 This will create as many tabs as the number of selected requests, and populate each tab with each selected request to be issued for parameter extraction.
 
 ### Enabling/Disabling configuration tabs
