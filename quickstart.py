@@ -1,5 +1,5 @@
 text = """<html>
-<h3>First and foremost: the save/load setup functionality (see buttons above) persist through<br>
+<h3>First and foremost: the save/load setup functionality (see buttons above) persists through<br>
 reloading not only the extension, but Burp Suite entirely. All values of each existing<br>
 configuration tab will be saved, along with the order of all tabs.</h3>
 <h2>Adding configuration tabs</h2>
