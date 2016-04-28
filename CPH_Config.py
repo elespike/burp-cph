@@ -1,7 +1,8 @@
-import quickstart
 from thread import start_new_thread
+from logging import DEBUG, INFO, WARNING, ERROR, getLevelName
 from webbrowser import open_new_tab as browser_open
 
+import quickstart
 from burp import ITab
 from javax.swing import \
     BorderFactory, \
@@ -15,7 +16,9 @@ from javax.swing import \
     JSeparator, \
     JSplitPane, \
     JTabbedPane, \
-    JTextField
+    JTextField, \
+    SpinnerNumberModel, \
+    JSpinner
 from javax.swing.event import ChangeListener
 from java.awt.event import \
     ActionListener, \
@@ -61,11 +64,11 @@ class MainTab(ITab, ChangeListener):
                     yield tab
 
     def stateChanged(self, e):
-        tabbedpane = e.getSource()
-        index = tabbedpane.getSelectedIndex()
-        if hasattr(self, '_add_sign') and tabbedpane.getTitleAt(index) == self._add_sign:
-            MainTab.mainpane.setSelectedIndex(0)
-            ConfigTab(self._cph)
+        if e.getSource() == self.mainpane:
+            index = self.mainpane.getSelectedIndex()
+            if hasattr(self, '_add_sign') and self.mainpane.getTitleAt(index) == self._add_sign:
+                self.mainpane.setSelectedIndex(0)
+                ConfigTab(self._cph)
 
 
 class SubTab(JScrollPane, ActionListener):
@@ -83,7 +86,7 @@ class SubTab(JScrollPane, ActionListener):
 
     @staticmethod
     def set_title_font(label):
-        font = Font('SansSerif', Font.BOLD, 14)
+        font = Font(Font.SANS_SERIF, Font.BOLD, 14)
         label.setFont(font)
         return label
 
@@ -116,12 +119,13 @@ class SubTab(JScrollPane, ActionListener):
         cl.show(cardpanel, label)
 
 
-class OptionsTab(SubTab):
+class OptionsTab(SubTab, ChangeListener):
     DOCS_URL = 'https://github.com/elespike/burp-cph/wiki'
     BTN_DOCS_LBL = 'View full guide'
     BTN_SAVE_LBL = 'Save current setup'
     BTN_LOAD_LBL = 'Load saved setup'
     CHKBOX_PANE_LBL = 'Tool scope settings'
+    VERBOSITY_LBL = 'Verbosity level:'
     QUICKSTART_PANE_LBL = 'Quickstart guide'
 
     configname_tab_names = 'tab_names'
@@ -161,9 +165,24 @@ class OptionsTab(SubTab):
         btn_load = JButton(self.BTN_LOAD_LBL)
         btn_load.addActionListener(self)
 
+        err, warn, info, dbg = 1, 2, 3, 4
+        self.verbosity_translator = {
+            err: ERROR,
+            warn: WARNING,
+            info: INFO,
+            dbg: DEBUG}
+        self.verbosity_level_lbl = JLabel(getLevelName(INFO))
+        self.verbosity_spinner = JSpinner(SpinnerNumberModel(info, err, dbg, 1))
+        self.verbosity_spinner.addChangeListener(self)
+
+        verbosity_pane = JPanel(FlowLayout(FlowLayout.CENTER))
+        verbosity_pane.add(JLabel(self.VERBOSITY_LBL))
+        verbosity_pane.add(self.verbosity_spinner)
+        verbosity_pane.add(self.verbosity_level_lbl)
+
         btn_pane = JPanel(GridBagLayout())
         constraints = self.initialize_constraints()
-        btn_pane.add(self.create_blank_space(), constraints)
+        btn_pane.add(verbosity_pane, constraints)
         constraints.gridy = 1
         btn_pane.add(btn_docs, constraints)
         constraints.gridy = 2
@@ -182,7 +201,7 @@ class OptionsTab(SubTab):
 
         chkbox_pane = JPanel(GridBagLayout())
         chkbox_pane.setBorder(BorderFactory.createTitledBorder(self.CHKBOX_PANE_LBL))
-        chkbox_pane.getBorder().setTitleFont(Font('SansSerif', Font.ITALIC, 16))
+        chkbox_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
         constraints = self.initialize_constraints()
         chkbox_pane.add(self.chkbox_proxy, constraints)
         constraints.gridy = 1
@@ -203,8 +222,10 @@ class OptionsTab(SubTab):
 
         quickstart_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         quickstart_pane.setBorder(BorderFactory.createTitledBorder(self.QUICKSTART_PANE_LBL))
-        quickstart_pane.getBorder().setTitleFont(Font('SansSerif', Font.ITALIC, 16))
-        quickstart_pane.add(JLabel(quickstart.text))
+        quickstart_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
+        quickstart_text_lbl = JLabel(quickstart.text)
+        quickstart_text_lbl.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
+        quickstart_pane.add(quickstart_text_lbl)
 
         constraints = self.initialize_constraints()
         constraints.anchor = GridBagConstraints.FIRST_LINE_START
@@ -218,6 +239,12 @@ class OptionsTab(SubTab):
         constraints.gridy = 1
         constraints.gridwidth = 2
         self._main_tab_pane.add(quickstart_pane, constraints)
+
+    def stateChanged(self, e):
+        if e.getSource() == self.verbosity_spinner:
+            level = self.verbosity_translator[self.verbosity_spinner.getValue()]
+            self._cph.set_logging_level(level)
+            self.verbosity_level_lbl.setText(getLevelName(level))
 
     @staticmethod
     def set_tab_name(tab, tab_name):
@@ -307,7 +334,7 @@ class OptionsTab(SubTab):
             for tab in self._cph.maintab.get_config_tabs():
                 name = tab.namepane_txtfield.getText()
                 if name in self.tab_names:
-                    name += '(%s)' % i
+                    name += ' (%s)' % i
                     self.set_tab_name(tab, name)
                     i += 1
                 self.tab_names.append(name)
@@ -500,10 +527,10 @@ class ConfigTab(SubTab):
         self.req_mod_controls_to_toggle = self.req_mod_exp_pane_scope.getComponents()
         req_mod_layout_pane = JPanel(GridBagLayout())
         req_mod_layout_pane.setBorder(BorderFactory.createTitledBorder(self.REQ_MOD_GROUP_LBL))
-        req_mod_layout_pane.getBorder().setTitleFont(Font('SansSerif', Font.ITALIC, 16))
+        req_mod_layout_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
         param_handl_layout_pane = JPanel(GridBagLayout())
         param_handl_layout_pane.setBorder(BorderFactory.createTitledBorder(self.PARAM_HANDL_GROUP_LBL))
-        param_handl_layout_pane.getBorder().setTitleFont(Font('SansSerif', Font.ITALIC, 16))
+        param_handl_layout_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
         self.req_mod_radio_all = JRadioButton(self.REQ_MOD_RADIO_ALL_LBL, True)
         self.req_mod_radio_all.addActionListener(self)
         self.req_mod_radio_exp = JRadioButton(self.REQ_MOD_RADIO_EXP_LBL)

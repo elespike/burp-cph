@@ -1,5 +1,5 @@
 import re
-import logging
+from logging import basicConfig, INFO, exception, error, warning, info, debug, getLogger
 from sys import stdout
 
 from CPH_Config import MainTab
@@ -13,13 +13,17 @@ from javax.swing import JMenuItem
 class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContextMenuFactory):
     def __init__(self):
         self._hostheader = 'Host: '
-        logging.basicConfig(
-            level=logging.DEBUG,
+        basicConfig(
+            level=INFO,
             format='\r\n%(asctime)s:%(msecs)03d %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
             stream=stdout)
         self.messages_to_send = []
         self.final_macro_resp = ''
+
+    @staticmethod
+    def set_logging_level(level):
+        getLogger().setLevel(level)
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
@@ -36,7 +40,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
 
     def performAction(self, currentRequest, macroItems):
         if not macroItems:
-            logging.error('No macro found, or macro is empty!')
+            error('No macro found, or macro is empty!')
             return
         self.final_macro_resp = self.helpers.bytesToString(macroItems[-1].getResponse())
 
@@ -64,7 +68,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             port = int(host_and_port[split_index + 1:])
             return host, port
         except ValueError:
-            logging.exception('Invalid port value detected; reverting to port 80. Details below:')
+            exception('Invalid port value detected; reverting to port 80. Details below:')
             return host, 80
 
     def issue_request(self, tab):
@@ -80,9 +84,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     req_as_string = req_as_string.replace(match.group(1), cvalue)
                     tab.request = self.helpers.stringToBytes(req_as_string)
                     tab.param_handl_request_editor.setMessage(tab.request, True)
+                    info('Cookie updated: {}={}'.format(cname, cvalue))
 
-        info = self.helpers.analyzeRequest(tab.request)
-        headers = info.getHeaders()
+        req_info = self.helpers.analyzeRequest(tab.request)
+        headers = req_info.getHeaders()
         host = ''
         port = 80
         https = tab.https_chkbox.isSelected()
@@ -93,19 +98,19 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 host = header.replace(self._hostheader, '')
                 if ':' in host:
                     host, port = self.split_host_port(host)
-        httpsvc = self.helpers.buildHttpService(host, port, https)
         try:
+            httpsvc = self.helpers.buildHttpService(host, port, https)
             resp = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
-            logging.debug('Issued configured request from tab "{}" to host "{}"'.format(
+            debug('Issued configured request from tab "{}" to host "{}"'.format(
                 tab.namepane_txtfield.getText(), httpsvc.getHost()))
             if resp:
                 tab.param_handl_response_editor.setMessage(resp, False)
                 tab.response = resp
-                logging.debug('Got response!')
-        # todo: figure out if this needs to be a generic except or if there's a way to narrow it down
+                debug('Got response!')
+        # Generic except because misc. Java exceptions might occur.
         except:
-            logging.exception('Error issuing configured request from tab "{}" to host "{}"'.format(
-                tab.namepane_txtfield.getText(), httpsvc.getHost()))
+            exception('Error issuing configured request from tab "{}" to host "{}"'.format(
+                tab.namepane_txtfield.getText(), host))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
 
@@ -113,38 +118,38 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         dbg_skip_tool = 'Skipping message received from {} on account of global tool scope options.'
         if toolFlag == self.callbacks.TOOL_PROXY:
             if not self.maintab.options_tab.chkbox_proxy.isSelected():
-                logging.debug(dbg_skip_tool.format('Proxy'))
+                debug(dbg_skip_tool.format('Proxy'))
                 return
         elif toolFlag == self.callbacks.TOOL_TARGET:
             if not self.maintab.options_tab.chkbox_target.isSelected():
-                logging.debug(dbg_skip_tool.format('Target'))
+                debug(dbg_skip_tool.format('Target'))
                 return
         elif toolFlag == self.callbacks.TOOL_SPIDER:
             if not self.maintab.options_tab.chkbox_spider.isSelected():
-                logging.debug(dbg_skip_tool.format('Spider'))
+                debug(dbg_skip_tool.format('Spider'))
                 return
         elif toolFlag == self.callbacks.TOOL_REPEATER:
             if not self.maintab.options_tab.chkbox_repeater.isSelected():
-                logging.debug(dbg_skip_tool.format('Repeater'))
+                debug(dbg_skip_tool.format('Repeater'))
                 return
         elif toolFlag == self.callbacks.TOOL_SEQUENCER:
             if not self.maintab.options_tab.chkbox_sequencer.isSelected():
-                logging.debug(dbg_skip_tool.format('Sequencer'))
+                debug(dbg_skip_tool.format('Sequencer'))
                 return
         elif toolFlag == self.callbacks.TOOL_INTRUDER:
             if not self.maintab.options_tab.chkbox_intruder.isSelected():
-                logging.debug(dbg_skip_tool.format('Intruder'))
+                debug(dbg_skip_tool.format('Intruder'))
                 return
         elif toolFlag == self.callbacks.TOOL_SCANNER:
             if not self.maintab.options_tab.chkbox_scanner.isSelected():
-                logging.debug(dbg_skip_tool.format('Scanner'))
+                debug(dbg_skip_tool.format('Scanner'))
                 return
         elif toolFlag == self.callbacks.TOOL_EXTENDER:
             if not self.maintab.options_tab.chkbox_extender.isSelected():
-                logging.debug(dbg_skip_tool.format('Extender'))
+                debug(dbg_skip_tool.format('Extender'))
                 return
         else:
-            logging.debug('Skipping message received from unsupported Burp tool.')
+            debug('Skipping message received from unsupported Burp tool.')
             return
 
         requestinfo = self.helpers.analyzeRequest(messageInfo)
@@ -191,7 +196,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     messageInfo.setHttpService(self.helpers.buildHttpService(
                         host, port, httpsvc.getProtocol()))
                     break
-            logging.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
+            debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
         if not messageIsRequest:
             resp = messageInfo.getResponse()
@@ -223,12 +228,12 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 if rms_field_modifymatch_txt in req_as_string:
                     return True
         else:
-            logging.warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
+            warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
         return False
 
     def modify_request(self, tab, req_as_string):
-        logging.info('Processing tab "{}"'.format(tab.namepane_txtfield.getText()))
+        info('Processing tab "{}"'.format(tab.namepane_txtfield.getText()))
         ph_radio_insert_selected = tab.param_handl_radio_insert.isSelected()
         ph_radio_replace_selected = tab.param_handl_radio_replace.isSelected()
         ph_field_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
@@ -247,7 +252,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
 
         original_req = req_as_string
         match_value = ph_field_matchtarget_txt
-        logging.debug('Initial match value: {}'.format(match_value))
+        debug('Initial match value: {}'.format(match_value))
 
         exc_search_for_exp = 'Error searching for expression {}. Details below:'
         if ph_checkbox_matchtarget_regex:
@@ -255,24 +260,24 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             try:
                 match = re.search(ph_field_matchtarget_txt, req_as_string)
             except re.error:
-                logging.exception(exc_search_for_exp.format(
+                exception(exc_search_for_exp.format(
                     ph_field_matchtarget_txt))
             if match:
                 match_value = match.group(0)
                 if match.groups():
                     match_value = match.group(1)
-            logging.debug('Extracted match value using this expression: {}'.format(
+            debug('Extracted match value using this expression: {}'.format(
                 ph_field_matchtarget_txt))
-            logging.debug('Match value is now: {}'.format(match_value))
-        logging.debug('Final match value: {}'.format(match_value))
+            debug('Match value is now: {}'.format(match_value))
+        debug('Final match value: {}'.format(match_value))
 
         if not match_value:
-            logging.warning('No match found! Skipping tab "{}".'.format(
+            warning('No match found! Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
             return original_req
 
         replace_value = ph_field_staticvalue_txt
-        logging.debug('Initial replace value: {}'.format(replace_value))
+        debug('Initial replace value: {}'.format(replace_value))
 
         match = None
         dbg_extracted_repl = 'Extracted replace value using this expression: {}'
@@ -283,51 +288,51 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 match = re.search(ph_field_extract_cached_txt,
                                   self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage()))
             except re.error:
-                logging.exception(exc_search_for_exp.format(
+                exception(exc_search_for_exp.format(
                     ph_field_extract_cached_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                logging.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                logging.debug(dbg_new_repl_val.format(replace_value))
+                debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
+                debug(dbg_new_repl_val.format(replace_value))
             else:
-                logging.debug(dbg_extract_repl_fail.format(
+                debug(dbg_extract_repl_fail.format(
                     ph_field_extract_cached_txt))
         elif ph_radio_extract_single_selected:
             try:
                 self.issue_request(tab)
                 match = re.search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
             except re.error:
-                logging.exception(exc_search_for_exp.format(
+                exception(exc_search_for_exp.format(
                     ph_field_extract_single_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                logging.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                logging.debug(dbg_new_repl_val.format(replace_value))
+                debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
+                debug(dbg_new_repl_val.format(replace_value))
             else:
-                logging.debug(dbg_extract_repl_fail.format(
+                debug(dbg_extract_repl_fail.format(
                     ph_field_extract_single_txt))
         elif ph_radio_extract_macro_selected:
             try:
                 match = re.search(ph_field_extract_macro_txt, self.final_macro_resp)
             except re.error:
-                logging.exception(exc_search_for_exp.format(
+                exception(exc_search_for_exp.format(
                     ph_field_extract_macro_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                logging.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
-                logging.debug(dbg_new_repl_val.format(replace_value))
+                debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
+                debug(dbg_new_repl_val.format(replace_value))
             else:
-                logging.debug(dbg_extract_repl_fail.format(
+                debug(dbg_extract_repl_fail.format(
                     ph_field_extract_macro_txt))
 
-        logging.debug('Final replace value: {}'.format(replace_value))
-        logging.debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
+        debug('Final replace value: {}'.format(replace_value))
+        debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
 
         match_count = original_req.count(match_value)
         match_indices = ph_field_matchnum_txt.replace(' ', '').split(',')
@@ -355,13 +360,13 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                         match_index = match_count + match_index
                     match_indices[i] = match_index
             except ValueError:
-                logging.exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
+                exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
                     tab.namepane_txtfield.getText()))
                 continue
 
-        logging.debug('Unfiltered match indices: {}'.format(match_indices))
+        debug('Unfiltered match indices: {}'.format(match_indices))
         match_indices = sorted([m for m in match_indices if m < match_count])
-        logging.debug('Filtered match indices: {}'.format(match_indices))
+        debug('Filtered match indices: {}'.format(match_indices))
 
         modification_count = 0
         for match_index in match_indices:
@@ -372,8 +377,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     substr_index = original_req.index(match_value, substr_index + 1)
                     num += 1
             except ValueError:
-                logging.exception('This should never have happened! Check the filtering mechanism.\r\n\t'
-                                  + 'Current tab: {}'.format(tab.namepane_txtfield.getText()))
+                exception('This should never have happened! Check the filtering mechanism.\r\n\t'
+                          + 'Current tab: {}'.format(tab.namepane_txtfield.getText()))
                 continue
             substr_index += (len(replace_value) - len(match_value)) * modification_count
             if ph_radio_insert_selected:
@@ -382,18 +387,18 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                                 + replace_value \
                                 + req_as_string[insert_at:]
                 modification_count += 1
-                logging.info('Match index [{}]: inserted "{}" after "{}"'.format(
+                info('Match index [{}]: inserted "{}" after "{}"'.format(
                     match_index, replace_value, match_value))
             elif ph_radio_replace_selected:
                 req_as_string = req_as_string[:substr_index] \
                                 + replace_value \
                                 + req_as_string[substr_index + len(match_value):]
                 modification_count += 1
-                logging.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
+                info('Match index [{}]: matched "{}", replaced with "{}"'.format(
                     match_index, match_value, replace_value))
 
         if modification_count == 0:
-            logging.warning('No match found for "{}"! Skipping tab "{}".'.format(
+            warning('No match found for "{}"! Skipping tab "{}".'.format(
                 match_value, tab.namepane_txtfield.getText()))
             return original_req
 
