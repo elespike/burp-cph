@@ -4,8 +4,8 @@
 
 ### Setting up Burp to use CPH
 
-- Copy all .py files to a desired directory (let's call it <dir>). Note that tinyweb.py is not required; it is simply a little Flask app for a quick and easy CPH demo setup.
-- Under Extender > Options > Python Environment, configure Burp to use <dir> for loading modules.
+- Copy all .py files to a desired directory (let's call it *my_dir*). Note that tinyweb.py is not required; it is simply a little Flask app for a quick and easy CPH demo setup.
+- Under Extender > Options > Python Environment, configure Burp to use *my_dir* for loading modules.
 - If not already specified, browse to your copy of Jython's standalone .jar file.
 - Finally, add CustomParamHandler.py in Extender > Extensions.
 
