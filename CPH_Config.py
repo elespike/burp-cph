@@ -428,6 +428,7 @@ class ConfigTabTitle(JPanel):
             if tabcount == 3 or tabindex == tabcount - 2:
                 MainTab.mainpane.setSelectedIndex(tabcount - 3)
             MainTab.mainpane.remove(tabindex)
+            ConfigTab.disable_all_cache_viewers()
 
         class CloseButtonMouseListener(MouseAdapter):
             def mouseEntered(self, e):

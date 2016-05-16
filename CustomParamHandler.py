@@ -205,6 +205,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     tab.param_handl_cached_resp_viewer.setMessage(resp, False)
                     if not tab.param_handl_radio_extract_cached.isEnabled():
                         tab.param_handl_radio_extract_cached.setEnabled(True)
+                else:
+                    tab.param_handl_radio_extract_cached.setEnabled(False)
                 if self.is_in_cph_scope(req_as_string, tab):
                     tab.cached_response = resp
                     set_cache = True
