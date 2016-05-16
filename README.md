@@ -1,6 +1,6 @@
 ## Custom Parameter Handler extension for Burp Suite, allowing manipulation of parameters with surgical precision even (and especially) when using macros.
 
-#### The save/load setup functionality persists through reloading not only the extension, but Burp Suite entirely. All values of each existing configuration tab will be saved, along with the order of all tabs.
+#### The [save/load setup](https://github.com/elespike/burp-cph/wiki/0.-Save-and-load-configuration) functionality persists through reloading not only the extension, but Burp Suite entirely. All values of each existing configuration tab will be saved, along with the order of all tabs.
 
 ### Setting up Burp to use CPH
 
@@ -26,7 +26,7 @@ New tabs are enabled by default but require a valid configuration in order to ha
 
 Leftmost tabs will be processed first; therefore, tab order may be important, especially when extracting values from cached responses.
 
-View the full guide for explanations on utilizing cached responses.
+[Visit the wiki](https://github.com/elespike/burp-cph/wiki) for explanations on utilizing [cached responses](https://github.com/elespike/burp-cph/wiki/8.-Caching-messages-for-full-macro-modification).
 
 ### Tab configuration at a glance
 
@@ -54,4 +54,4 @@ the desired replacement value.
 When utilizing RegEx, using a group will constrain the match to the group's contents.
 This strategy, therefore, increases match accuracy.
 
-### Please visit the wiki for explanations on the remaining options.
+### Please [visit the wiki](https://github.com/elespike/burp-cph/wiki) for explanations on the remaining options.
