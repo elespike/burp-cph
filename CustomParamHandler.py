@@ -205,8 +205,6 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     tab.param_handl_cached_resp_viewer.setMessage(resp, False)
                     if not tab.param_handl_radio_extract_cached.isEnabled():
                         tab.param_handl_radio_extract_cached.setEnabled(True)
-                else:
-                    tab.param_handl_radio_extract_cached.setEnabled(False)
                 if self.is_in_cph_scope(req_as_string, tab):
                     tab.cached_response = resp
                     set_cache = True
@@ -296,7 +294,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
+                debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
                 debug(dbg_new_repl_val.format(replace_value))
             else:
                 debug(dbg_extract_repl_fail.format(
