@@ -1,5 +1,5 @@
 import re
-from logging import basicConfig, INFO, exception, error, warning, info, debug, getLogger
+from logging import DEBUG, ERROR, INFO, WARNING, debug, error, exception, info, warning, basicConfig, getLogger
 from sys import stdout
 
 from CPH_Config import MainTab
@@ -24,6 +24,20 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
     @staticmethod
     def set_logging_level(level):
         getLogger().setLevel(level)
+
+    @staticmethod
+    def issue_log_message(message, level, print_trace=False):
+        if level == DEBUG:
+            debug(message)
+        if level == ERROR:
+            if print_trace:
+                exception(message)
+            else:
+                error(message)
+        if level == INFO:
+            info(message)
+        if level == WARNING:
+            warning(message)
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
