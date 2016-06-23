@@ -142,6 +142,9 @@ class OptionsTab(SubTab, ChangeListener):
 
     configname_tab_names = 'tab_names'
     configname_enabled = 'enabled'
+    configname_modify_type_requests = 'modify_type_requests'
+    configname_modify_type_responses = 'modify_type_responses'
+    configname_modify_type_both = 'modify_type_both'
     configname_modify_all = 'modify_all'
     configname_modify_match = 'modify_match'
     configname_modify_exp = 'modify_exp'
@@ -278,15 +281,21 @@ class OptionsTab(SubTab, ChangeListener):
         tab_name += '|'
         tab.tabtitle.enable_chkbox.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_enabled) == 'True')
-        tab.req_mod_radio_all.setSelected(
+        tab.msg_mod_radio_req.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_modify_type_requests) == 'True')
+        tab.msg_mod_radio_resp.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_modify_type_responses) == 'True')
+        tab.msg_mod_radio_both.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_modify_type_both) == 'True')
+        tab.msg_mod_radio_all.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_modify_all) == 'True')
-        if tab.req_mod_radio_all.isSelected():
-            tab.flip_req_mod_controls(False)
-        tab.req_mod_radio_exp.setSelected(
+        if tab.msg_mod_radio_all.isSelected():
+            tab.flip_msg_mod_controls(False)
+        tab.msg_mod_radio_exp.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_modify_match) == 'True')
-        if tab.req_mod_radio_exp.isSelected():
-            tab.flip_req_mod_controls(True)
-        self.set_exp_pane_values(tab.req_mod_exp_pane_scope,
+        if tab.msg_mod_radio_exp.isSelected():
+            tab.flip_msg_mod_controls(True)
+        self.set_exp_pane_values(tab.msg_mod_exp_pane_scope,
                                  self._cph.callbacks.loadExtensionSetting(
                                      tab_name + self.configname_modify_exp),
                                  self._cph.callbacks.loadExtensionSetting(
@@ -350,15 +359,21 @@ class OptionsTab(SubTab, ChangeListener):
         tab_name += '|'
         tab.tabtitle.enable_chkbox.setSelected(
             config[tab_name + self.configname_enabled])
-        tab.req_mod_radio_all.setSelected(
+        tab.msg_mod_radio_req.setSelected(
+            config[tab_name + self.configname_modify_type_requests])
+        tab.msg_mod_radio_resp.setSelected(
+            config[tab_name + self.configname_modify_type_responses])
+        tab.msg_mod_radio_both.setSelected(
+            config[tab_name + self.configname_modify_type_both])
+        tab.msg_mod_radio_all.setSelected(
             config[tab_name + self.configname_modify_all])
-        if tab.req_mod_radio_all.isSelected():
-            tab.flip_req_mod_controls(False)
-        tab.req_mod_radio_exp.setSelected(
+        if tab.msg_mod_radio_all.isSelected():
+            tab.flip_msg_mod_controls(False)
+        tab.msg_mod_radio_exp.setSelected(
             config[tab_name + self.configname_modify_match])
-        if tab.req_mod_radio_exp.isSelected():
-            tab.flip_req_mod_controls(True)
-        self.set_exp_pane_values(tab.req_mod_exp_pane_scope,
+        if tab.msg_mod_radio_exp.isSelected():
+            tab.flip_msg_mod_controls(True)
+        self.set_exp_pane_values(tab.msg_mod_exp_pane_scope,
                                  config[tab_name + self.configname_modify_exp],
                                  config[tab_name + self.configname_modify_exp_regex])
         tab.param_handl_radio_insert.setSelected(
@@ -411,18 +426,23 @@ class OptionsTab(SubTab, ChangeListener):
         c = e.getActionCommand()
         if c == self.BTN_QUICKLOAD_LBL or c == self.BTN_IMPORTCONFIG_LBL:
             replace_config_tabs = False
-            result = JOptionPane.showOptionDialog(self,
-                                                  'Would you like to Replace or Merge with the current config?',
-                                                  'Replace or Merge?',
-                                                  JOptionPane.YES_NO_CANCEL_OPTION,
-                                                  JOptionPane.QUESTION_MESSAGE,
-                                                  None,
-                                                  ['Replace', 'Merge', 'Cancel'],
-                                                  'Cancel')
+            result = 0
+            tabcount = 0
+            for tab in self._cph.maintab.get_config_tabs():
+                tabcount += 1
+            if tabcount > 0:
+                result = JOptionPane.showOptionDialog(self,
+                                                      'Would you like to Purge or Keep all existing tabs?',
+                                                      'Existing Tabs Detected!',
+                                                      JOptionPane.YES_NO_CANCEL_OPTION,
+                                                      JOptionPane.QUESTION_MESSAGE,
+                                                      None,
+                                                      ['Purge', 'Keep', 'Cancel'],
+                                                      'Cancel')
             if result == 0:  # Replace
                 replace_config_tabs = True
                 self._cph.issue_log_message('Replacing configuration...', INFO)
-            elif result != 2 and result != -1:  # Cancel or close dialog
+            if result != 2 and result != -1:  # Cancel or close dialog
                 self._cph.issue_log_message('Merging configuration...', INFO)
                 if c == self.BTN_QUICKLOAD_LBL:
                     try:
@@ -450,29 +470,37 @@ class OptionsTab(SubTab, ChangeListener):
                 self._cph.issue_log_message('User canceled quickload/import.', INFO)
 
         if c == self.BTN_QUICKSAVE_LBL:
-            config = self.prepare_to_save()
-            self._cph.callbacks.saveExtensionSetting(self.configname_tab_names, ','.join(self.tab_names))
-            for k, v in config.items():
-                self._cph.callbacks.saveExtensionSetting(k, str(v))
+            tabcount = 0
+            for tab in self._cph.maintab.get_config_tabs():
+                tabcount += 1
+                if tabcount > 0:
+                    config = self.prepare_to_save()
+                    self._cph.callbacks.saveExtensionSetting(self.configname_tab_names, ','.join(self.tab_names))
+                    for k, v in config.items():
+                        self._cph.callbacks.saveExtensionSetting(k, str(v))
 
         if c == self.BTN_DOCS_LBL:
             browser_open(self.DOCS_URL)
 
         if c == self.BTN_EXPORTCONFIG_LBL:
-            fc = JFileChooser()
-            result = fc.showSaveDialog(self)
-            if result == JFileChooser.APPROVE_OPTION:
-                fpath = fc.getSelectedFile().getPath()
-                config = self.prepare_to_save()
-                try:
-                    with open(fpath, 'wb') as f:
-                        dump(','.join(self.tab_names), f)
-                        dump(config, f)
-                    self._cph.issue_log_message('Configuration exported to "{}".'.format(fpath), INFO)
-                except IOError:
-                    self._cph.issue_log_message('Error exporting config to "{}".'.format(fpath), ERROR, True)
-            if result == JFileChooser.CANCEL_OPTION:
-                self._cph.issue_log_message('User canceled configuration export to file.', INFO)
+            tabcount = 0
+            for tab in self._cph.maintab.get_config_tabs():
+                tabcount += 1
+                if tabcount > 0:
+                    fc = JFileChooser()
+                    result = fc.showSaveDialog(self)
+                    if result == JFileChooser.APPROVE_OPTION:
+                        fpath = fc.getSelectedFile().getPath()
+                        config = self.prepare_to_save()
+                        try:
+                            with open(fpath, 'wb') as f:
+                                dump(','.join(self.tab_names), f)
+                                dump(config, f)
+                            self._cph.issue_log_message('Configuration exported to "{}".'.format(fpath), INFO)
+                        except IOError:
+                            self._cph.issue_log_message('Error exporting config to "{}".'.format(fpath), ERROR, True)
+                    if result == JFileChooser.CANCEL_OPTION:
+                        self._cph.issue_log_message('User canceled configuration export to file.', INFO)
 
     def load_config(self, replace_config_tabs, config=None):
         temp_names = self.tab_names[:]
@@ -490,6 +518,13 @@ class OptionsTab(SubTab, ChangeListener):
                 if tab not in tabs_to_remove:
                     tabs_to_remove[tab] = True
                     tabcount += 1
+
+                # Match UI to loaded config
+                if tab.msg_mod_radio_resp.isSelected():
+                    tab.msg_mod_radio_resp.doClick()
+                if tab.msg_mod_radio_both.isSelected():
+                    tab.msg_mod_radio_both.doClick()
+
         for k, v in tabs_to_remove.items():
             if v and replace_config_tabs:
                 MainTab.mainpane.remove(k)
@@ -526,10 +561,13 @@ class OptionsTab(SubTab, ChangeListener):
             self.tab_names.append(name)
             name += '|'
             config[name + self.configname_enabled] = tab.tabtitle.enable_chkbox.isSelected()
-            config[name + self.configname_modify_all] = tab.req_mod_radio_all.isSelected()
-            config[name + self.configname_modify_match] = tab.req_mod_radio_exp.isSelected()
+            config[name + self.configname_modify_type_requests] = tab.msg_mod_radio_req.isSelected()
+            config[name + self.configname_modify_type_responses] = tab.msg_mod_radio_resp.isSelected()
+            config[name + self.configname_modify_type_both] = tab.msg_mod_radio_both.isSelected()
+            config[name + self.configname_modify_all] = tab.msg_mod_radio_all.isSelected()
+            config[name + self.configname_modify_match] = tab.msg_mod_radio_exp.isSelected()
             config[name + self.configname_modify_exp], \
-            config[name + self.configname_modify_exp_regex] = self.get_exp_pane_values(tab.req_mod_exp_pane_scope)
+            config[name + self.configname_modify_exp_regex] = self.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
             config[name + self.configname_insert] = tab.param_handl_radio_insert.isSelected()
             config[name + self.configname_replace] = tab.param_handl_radio_replace.isSelected()
             config[name + self.configname_match_indices] = tab.param_handl_txtfield_match_indices.getText()
@@ -640,9 +678,13 @@ class ConfigTab(SubTab):
     PARAM_HANDL_RADIO_STATIC_LBL = 'Use static value'
     PARAM_HANDL_RADIO_EXTRACT_CACHED_LBL = 'Extract value from the preceding tab\'s cached response...'
     REGEX_LBL = 'RegEx'
-    REQ_MOD_GROUP_LBL = 'Message modification/caching scope (always respects suite scope)'
-    REQ_MOD_RADIO_ALL_LBL = 'All requests'
-    REQ_MOD_RADIO_EXP_LBL = 'Requests matching this expression:'
+    MSG_MOD_GROUP_LBL = 'Message modification/caching scope (always respects suite scope)'
+    MSG_MOD_TYPES_TO_MODIFY_LBL = 'Message types to modify:'
+    MSG_MOD_RADIO_REQUESTS_LBL = 'Requests'
+    MSG_MOD_RADIO_RESPONSES_LBL = 'Responses'
+    MSG_MOD_RADIO_BOTH_LBL = 'Requests and Responses'
+    MSG_MOD_RADIO_ALL_LBL = 'All {}'
+    MSG_MOD_RADIO_EXP_LBL = '{} matching this expression:'
     TAB_NAME_LBL = 'Friendly name:'
     TAB_NEW_NAME = 'Unconfigured'
     BTN_BACK_LBL = '<'
@@ -657,7 +699,7 @@ class ConfigTab(SubTab):
             resp = message.getResponse()
             if resp:
                 self.response = resp
-        self.req_mod_controls_to_toggle = []
+        self.msg_mod_controls_to_toggle = []
         self.cached_match = ''
 
         index = MainTab.mainpane.getTabCount() - 1
@@ -679,18 +721,24 @@ class ConfigTab(SubTab):
         self.namepane_txtfield = ConfigTabNameField(self.tabtitle.label)
         namepane.add(self.namepane_txtfield)
 
-        self.req_mod_exp_pane_scope = self.create_expression_pane()
-        self.req_mod_controls_to_toggle = self.req_mod_exp_pane_scope.getComponents()
-        req_mod_layout_pane = JPanel(GridBagLayout())
-        req_mod_layout_pane.setBorder(BorderFactory.createTitledBorder(self.REQ_MOD_GROUP_LBL))
-        req_mod_layout_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
+        self.msg_mod_exp_pane_scope = self.create_expression_pane()
+        self.msg_mod_controls_to_toggle = self.msg_mod_exp_pane_scope.getComponents()
+        msg_mod_layout_pane = JPanel(GridBagLayout())
+        msg_mod_layout_pane.setBorder(BorderFactory.createTitledBorder(self.MSG_MOD_GROUP_LBL))
+        msg_mod_layout_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
         param_handl_layout_pane = JPanel(GridBagLayout())
         param_handl_layout_pane.setBorder(BorderFactory.createTitledBorder(self.PARAM_HANDL_GROUP_LBL))
         param_handl_layout_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
-        self.req_mod_radio_all = JRadioButton(self.REQ_MOD_RADIO_ALL_LBL, True)
-        self.req_mod_radio_all.addActionListener(self)
-        self.req_mod_radio_exp = JRadioButton(self.REQ_MOD_RADIO_EXP_LBL)
-        self.req_mod_radio_exp.addActionListener(self)
+        self.msg_mod_radio_req = JRadioButton(self.MSG_MOD_RADIO_REQUESTS_LBL, True)
+        self.msg_mod_radio_req.addActionListener(self)
+        self.msg_mod_radio_resp = JRadioButton(self.MSG_MOD_RADIO_RESPONSES_LBL)
+        self.msg_mod_radio_resp.addActionListener(self)
+        self.msg_mod_radio_both = JRadioButton(self.MSG_MOD_RADIO_BOTH_LBL)
+        self.msg_mod_radio_both.addActionListener(self)
+        self.msg_mod_radio_all = JRadioButton(self.MSG_MOD_RADIO_ALL_LBL.format(self.MSG_MOD_RADIO_REQUESTS_LBL), True)
+        self.msg_mod_radio_all.addActionListener(self)
+        self.msg_mod_radio_exp = JRadioButton(self.MSG_MOD_RADIO_EXP_LBL.format(self.MSG_MOD_RADIO_REQUESTS_LBL))
+        self.msg_mod_radio_exp.addActionListener(self)
         self.param_handl_radio_insert = JRadioButton(self.PARAM_HANDL_RADIO_INSERT_LBL, True)
         self.param_handl_radio_insert.addActionListener(self)
         self.param_handl_radio_replace = JRadioButton(self.PARAM_HANDL_RADIO_REPLACE_LBL)
@@ -723,7 +771,7 @@ class ConfigTab(SubTab):
         self.param_handl_radio_extract_macro.addActionListener(self)
         self.https_chkbox = JCheckBox(self.HTTPS_LBL)
 
-        self.build_request_mod_pane(req_mod_layout_pane)
+        self.build_msg_mod_pane(msg_mod_layout_pane)
         self.build_param_handl_pane(param_handl_layout_pane)
 
         if self.request:
@@ -737,7 +785,7 @@ class ConfigTab(SubTab):
         constraints.gridy = 1
         self._main_tab_pane.add(namepane, constraints)
         constraints.gridy = 2
-        self._main_tab_pane.add(req_mod_layout_pane, constraints)
+        self._main_tab_pane.add(msg_mod_layout_pane, constraints)
         constraints.gridy = 3
         constraints.weighty = 1
         self._main_tab_pane.add(param_handl_layout_pane, constraints)
@@ -754,20 +802,38 @@ class ConfigTab(SubTab):
         pane.add(box)
         return pane
 
-    def build_request_mod_pane(self, request_mod_pane):
-        for c in self.req_mod_controls_to_toggle:
+    def build_msg_mod_pane(self, msg_mod_pane):
+        for c in self.msg_mod_controls_to_toggle:
             c.setEnabled(False)
+
         mod_group = ButtonGroup()
-        mod_group.add(self.req_mod_radio_all)
-        mod_group.add(self.req_mod_radio_exp)
+        mod_group.add(self.msg_mod_radio_all)
+        mod_group.add(self.msg_mod_radio_exp)
+
+        mod_req_or_resp_group = ButtonGroup()
+        mod_req_or_resp_group.add(self.msg_mod_radio_req)
+        mod_req_or_resp_group.add(self.msg_mod_radio_resp)
+        mod_req_or_resp_group.add(self.msg_mod_radio_both)
+
+        msg_mod_req_or_resp_pane = JPanel(FlowLayout(FlowLayout.LEADING))
+        msg_mod_req_or_resp_pane.add(JLabel(self.MSG_MOD_TYPES_TO_MODIFY_LBL))
+        msg_mod_req_or_resp_pane.add(self.msg_mod_radio_req)
+        msg_mod_req_or_resp_pane.add(self.msg_mod_radio_resp)
+        msg_mod_req_or_resp_pane.add(self.msg_mod_radio_both)
 
         constraints = self.initialize_constraints()
-        request_mod_pane.add(self.req_mod_radio_all, constraints)
+        msg_mod_pane.add(msg_mod_req_or_resp_pane, constraints)
         constraints.gridy = 1
-        request_mod_pane.add(self.req_mod_radio_exp, constraints)
+        msg_mod_pane.add(JSeparator(), constraints)
         constraints.gridy = 2
+        msg_mod_pane.add(self.create_blank_space(), constraints)
+        constraints.gridy = 3
+        msg_mod_pane.add(self.msg_mod_radio_all, constraints)
+        constraints.gridy = 4
+        msg_mod_pane.add(self.msg_mod_radio_exp, constraints)
+        constraints.gridy = 5
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
-        request_mod_pane.add(self.req_mod_exp_pane_scope, constraints)
+        msg_mod_pane.add(self.msg_mod_exp_pane_scope, constraints)
 
     def build_param_handl_pane(self, param_derivation_pane):
         param_group_1 = ButtonGroup()
@@ -892,8 +958,8 @@ class ConfigTab(SubTab):
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_cardpanel_static_or_extract, constraints)
 
-    def flip_req_mod_controls(self, on_off):
-        for control in self.req_mod_controls_to_toggle:
+    def flip_msg_mod_controls(self, on_off):
+        for control in self.msg_mod_controls_to_toggle:
             control.setEnabled(on_off)
 
     @staticmethod
@@ -916,6 +982,7 @@ class ConfigTab(SubTab):
 
     def disable_cache_viewers(self):
         self.cached_request, self.cached_response = self.initialize_req_resp()
+        # todo possibly replace setSelected and show_card below with doClick().
         if self.param_handl_radio_extract_cached.isSelected():
             self.param_handl_radio_static.setSelected(True)
             ConfigTab.show_card(self.param_handl_cardpanel_static_or_extract, self.PARAM_HANDL_RADIO_STATIC_LBL)
@@ -929,10 +996,19 @@ class ConfigTab(SubTab):
 
     def actionPerformed(self, e):
         c = e.getActionCommand()
-        if c == self.REQ_MOD_RADIO_ALL_LBL:
-            self.flip_req_mod_controls(False)
-        if c == self.REQ_MOD_RADIO_EXP_LBL:
-            self.flip_req_mod_controls(True)
+        if c == self.MSG_MOD_RADIO_REQUESTS_LBL:
+            self.msg_mod_radio_all.setText(self.MSG_MOD_RADIO_ALL_LBL.format(self.MSG_MOD_RADIO_REQUESTS_LBL))
+            self.msg_mod_radio_exp.setText(self.MSG_MOD_RADIO_EXP_LBL.format(self.MSG_MOD_RADIO_REQUESTS_LBL))
+        if c == self.MSG_MOD_RADIO_RESPONSES_LBL:
+            self.msg_mod_radio_all.setText(self.MSG_MOD_RADIO_ALL_LBL.format(self.MSG_MOD_RADIO_RESPONSES_LBL))
+            self.msg_mod_radio_exp.setText(self.MSG_MOD_RADIO_EXP_LBL.format(self.MSG_MOD_RADIO_RESPONSES_LBL))
+        if c == self.MSG_MOD_RADIO_BOTH_LBL:
+            self.msg_mod_radio_all.setText(self.MSG_MOD_RADIO_ALL_LBL.format(self.MSG_MOD_RADIO_BOTH_LBL))
+            self.msg_mod_radio_exp.setText(self.MSG_MOD_RADIO_EXP_LBL.format(self.MSG_MOD_RADIO_BOTH_LBL))
+        if c == self.msg_mod_radio_all.getText():
+            self.flip_msg_mod_controls(False)
+        if c == self.msg_mod_radio_exp.getText():
+            self.flip_msg_mod_controls(True)
         if c == self.PARAM_HANDL_RADIO_STATIC_LBL:
             self.show_card(self.param_handl_cardpanel_static_or_extract, self.PARAM_HANDL_RADIO_STATIC_LBL)
         if c == self.PARAM_HANDL_RADIO_EXTRACT_CACHED_LBL:
