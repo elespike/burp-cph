@@ -173,13 +173,14 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         req = messageInfo.getRequest()
         req_as_string = self.helpers.bytesToString(req)
         set_cache = False
-
         if messageIsRequest:
             for tab in self.maintab.get_config_tabs():
                 if req == tab.request:
                     continue
-                if tab.tabtitle.enable_chkbox.isSelected() and self.is_in_cph_scope(req_as_string, tab):
-                    req_as_string = self.modify_request(tab, req_as_string)
+                if tab.tabtitle.enable_chkbox.isSelected() and \
+                        self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                    info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    req_as_string = self.modify_message(tab, req_as_string)
                     # URL-encode the first line of the request in case it was modified
                     first_req_line_old = req_as_string.split('\r\n')[0].split(' ')
                     first_req_line_new = '{} {} {}'.format(
@@ -192,7 +193,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             for tab in self.maintab.get_config_tabs():
                 if set_cache:
                     tab.param_handl_cached_req_viewer.setMessage(req, False)
-                if self.is_in_cph_scope(req_as_string, tab):
+                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
                     tab.cached_request = req
                     set_cache = True
                 else:
@@ -214,40 +215,63 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
 
         if not messageIsRequest:
             resp = messageInfo.getResponse()
+            resp_as_string = self.helpers.bytesToString(resp)
+            for tab in self.maintab.get_config_tabs():
+                if tab.tabtitle.enable_chkbox.isSelected() and \
+                        self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
+                    info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    resp_as_string = self.modify_message(tab, resp_as_string)
+                    resp = self.helpers.stringToBytes(resp_as_string)
+
             for tab in self.maintab.get_config_tabs():
                 if set_cache:
                     tab.param_handl_cached_resp_viewer.setMessage(resp, False)
                     if not tab.param_handl_radio_extract_cached.isEnabled():
                         tab.param_handl_radio_extract_cached.setEnabled(True)
-                if self.is_in_cph_scope(req_as_string, tab):
+                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
                     tab.cached_response = resp
                     set_cache = True
                 else:
                     set_cache = False
 
+            messageInfo.setResponse(resp)
+
     @staticmethod
-    def is_in_cph_scope(req_as_string, tab):
-        rms_radio_modifyall_selected = tab.req_mod_radio_all.isSelected()
-        rms_radio_modifymatch_selected = tab.req_mod_radio_exp.isSelected()
+    def is_in_cph_scope(msg_as_string, is_request, tab):
+        rms_radio_type_requests_selected = tab.msg_mod_radio_req.isSelected()
+        rms_radio_type_responses_selected = tab.msg_mod_radio_resp.isSelected()
+        rms_radio_type_both_selected = tab.msg_mod_radio_both.isSelected()
+        rms_radio_modifyall_selected = tab.msg_mod_radio_all.isSelected()
+        rms_radio_modifymatch_selected = tab.msg_mod_radio_exp.isSelected()
         rms_field_modifymatch_txt, \
-        rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.req_mod_exp_pane_scope)
+        rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
+
+        if is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected):
+            debug('is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected): {}'.format(
+                is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected)))
+        elif not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected):
+            debug('not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected): {}'.format(
+                not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected)))
+        else:
+            debug('Returning False from is_in_cph_scope')
+            return False
+
         if rms_radio_modifyall_selected:
             return True
         elif rms_radio_modifymatch_selected and rms_field_modifymatch_txt:
             if rms_checkbox_modifymatch_regex:
                 regexp = re.compile(rms_field_modifymatch_txt)
-                if regexp.search(req_as_string):
+                if regexp.search(msg_as_string):
                     return True
             else:
-                if rms_field_modifymatch_txt in req_as_string:
+                if rms_field_modifymatch_txt in msg_as_string:
                     return True
         else:
             warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
         return False
 
-    def modify_request(self, tab, req_as_string):
-        info('Processing tab "{}"'.format(tab.namepane_txtfield.getText()))
+    def modify_message(self, tab, msg_as_string):
         ph_radio_insert_selected = tab.param_handl_radio_insert.isSelected()
         ph_radio_replace_selected = tab.param_handl_radio_replace.isSelected()
         ph_field_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
@@ -263,8 +287,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
         ph_field_extract_macro_txt, \
         ph_checkbox_extract_macro_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro)
-
-        original_req = req_as_string
+        original_msg = msg_as_string
         match_value = ph_field_matchtarget_txt
         debug('Initial match value: {}'.format(match_value))
 
@@ -272,7 +295,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         if ph_checkbox_matchtarget_regex:
             match = None
             try:
-                match = re.search(ph_field_matchtarget_txt, req_as_string)
+                match = re.search(ph_field_matchtarget_txt, msg_as_string)
             except re.error:
                 exception(exc_search_for_exp.format(
                     ph_field_matchtarget_txt))
@@ -288,7 +311,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         if not match_value:
             warning('No match found! Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
-            return original_req
+            return original_msg
 
         replace_value = ph_field_staticvalue_txt
         debug('Initial replace value: {}'.format(replace_value))
@@ -348,7 +371,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         debug('Final replace value: {}'.format(replace_value))
         debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
 
-        match_count = original_req.count(match_value)
+        match_count = original_msg.count(match_value)
         match_indices = ph_field_matchnum_txt.replace(' ', '').split(',')
         len_match_indices = len(match_indices)
         for i, v in enumerate(match_indices):
@@ -388,7 +411,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             substr_index = -1
             try:
                 while num < match_index:
-                    substr_index = original_req.index(match_value, substr_index + 1)
+                    substr_index = original_msg.index(match_value, substr_index + 1)
                     num += 1
             except ValueError:
                 exception('This should never have happened! Check the filtering mechanism.\r\n\t'
@@ -397,16 +420,16 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             substr_index += (len(replace_value) - len(match_value)) * modification_count
             if ph_radio_insert_selected:
                 insert_at = substr_index + (len(match_value) * (modification_count + 1))
-                req_as_string = req_as_string[:insert_at] \
+                msg_as_string = msg_as_string[:insert_at] \
                                 + replace_value \
-                                + req_as_string[insert_at:]
+                                + msg_as_string[insert_at:]
                 modification_count += 1
                 info('Match index [{}]: inserted "{}" after "{}"'.format(
                     match_index, replace_value, match_value))
             elif ph_radio_replace_selected:
-                req_as_string = req_as_string[:substr_index] \
+                msg_as_string = msg_as_string[:substr_index] \
                                 + replace_value \
-                                + req_as_string[substr_index + len(match_value):]
+                                + msg_as_string[substr_index + len(match_value):]
                 modification_count += 1
                 info('Match index [{}]: matched "{}", replaced with "{}"'.format(
                     match_index, match_value, replace_value))
@@ -414,6 +437,6 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         if modification_count == 0:
             warning('No match found for "{}"! Skipping tab "{}".'.format(
                 match_value, tab.namepane_txtfield.getText()))
-            return original_req
+            return original_msg
 
-        return req_as_string
+        return msg_as_string
