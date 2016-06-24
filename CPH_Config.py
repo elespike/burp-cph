@@ -201,15 +201,19 @@ class OptionsTab(SubTab, ChangeListener):
 
         btn_pane = JPanel(GridBagLayout())
         constraints = self.initialize_constraints()
+        constraints.gridwidth = 2
+        btn_pane.add(self.create_blank_space(), constraints)
+        constraints.gridwidth = 1
+        constraints.gridy = 1
         btn_pane.add(verbosity_pane, constraints)
         constraints.gridx = 1
         btn_pane.add(btn_docs, constraints)
-        constraints.gridy = 1
+        constraints.gridy = 2
         constraints.gridx = 0
         btn_pane.add(btn_quicksave, constraints)
         constraints.gridx = 1
         btn_pane.add(btn_exportconfig, constraints)
-        constraints.gridy = 2
+        constraints.gridy = 3
         constraints.gridx = 0
         btn_pane.add(btn_quickload, constraints)
         constraints.gridx = 1
@@ -255,13 +259,17 @@ class OptionsTab(SubTab, ChangeListener):
         constraints = self.initialize_constraints()
         constraints.anchor = GridBagConstraints.FIRST_LINE_START
         constraints.weighty = 0.05
+        constraints.gridwidth = 2
+        self._main_tab_pane.add(self.create_blank_space(), constraints)
+        constraints.gridwidth = 1
+        constraints.gridy = 1
         self._main_tab_pane.add(btn_pane, constraints)
         constraints.gridx = 1
         self._main_tab_pane.add(chkbox_pane, constraints)
         constraints.gridx = 2
         self._main_tab_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 0
-        constraints.gridy = 1
+        constraints.gridy = 2
         constraints.gridwidth = 2
         self._main_tab_pane.add(quickstart_pane, constraints)
 
@@ -982,10 +990,10 @@ class ConfigTab(SubTab):
 
     def disable_cache_viewers(self):
         self.cached_request, self.cached_response = self.initialize_req_resp()
-        # todo possibly replace setSelected and show_card below with doClick().
+        self.param_handl_cached_req_viewer.setMessage(self.cached_request, False)
+        self.param_handl_cached_resp_viewer.setMessage(self.cached_response, False)
         if self.param_handl_radio_extract_cached.isSelected():
-            self.param_handl_radio_static.setSelected(True)
-            ConfigTab.show_card(self.param_handl_cardpanel_static_or_extract, self.PARAM_HANDL_RADIO_STATIC_LBL)
+            self.param_handl_radio_static.doClick()
         self.param_handl_radio_extract_cached.setEnabled(False)
 
     @staticmethod

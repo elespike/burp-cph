@@ -1,7 +1,8 @@
 text = """<html>
-<h3>First and foremost: the save/load setup functionality (see buttons above) persists through<br>
+<h3>First and foremost: the quicksave and quickload functionality (see buttons above) persists through<br>
 reloading not only the extension, but Burp Suite entirely. All values of each existing<br>
 configuration tab will be saved, along with the order of all tabs.</h3>
+<h3>Use the Export/Import Config buttons to save/load your current configuration to/from a file.</h3>
 <h2>Adding configuration tabs</h2>
 &nbsp;&nbsp;&nbsp;&nbsp;- Click '+' to add an empty tab; or<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.<br>
@@ -24,8 +25,9 @@ configuration tab will be saved, along with the order of all tabs.</h3>
 <h2>Tab configuration at a glance</h2>
 &nbsp;&nbsp;&nbsp;&nbsp;&gt;&nbsp;Request modification/caching scope<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Depending on the selected option, this tab will take action on either:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- All requests coming through Burp which are also in Burp's scope; or<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Requests coming through Burp, in Burp's scope, and also matching the given expression.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Requests only, Responses only, or both Requests and Responses; then either<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ All requests coming through Burp which are also in Burp's scope; or<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ Requests coming through Burp, in Burp's scope, and also matching the given expression.<br>
 <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&gt;&nbsp;Parameter handling match options<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The supplied expression will be used to find the value that will either:<br>
