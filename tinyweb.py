@@ -44,6 +44,28 @@ def three(num):
     return m + str(number)
 
 
+@app.route('/post', methods=['GET', 'POST'])
+def post():
+    default_resp = '''
+POST /post HTTP/1.1<br>
+Host: 127.0.0.1:5000<br>
+Connection: close<br>
+Content-Type: application/x-www-form-urlencoded<br>
+Content-Length: 18<br>
+<br>
+new_number=12345
+        '''
+    global number
+    if 'new_number' in request.form:
+        try:
+            number = int(request.form['new_number'][:-1].strip())
+            return 'number set to {}!'.format(number)
+        except:
+            return default_resp
+    else:
+        return default_resp
+
+
 @app.route('/check/<int:num>')
 def check(num):
     global number
