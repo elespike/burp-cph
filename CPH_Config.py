@@ -494,26 +494,29 @@ class OptionsTab(SubTab, ChangeListener):
             tabcount = 0
             for tab in self._cph.maintab.get_config_tabs():
                 tabcount += 1
-                if tabcount > 0:
-                    fc = JFileChooser()
-                    result = fc.showSaveDialog(self)
-                    if result == JFileChooser.APPROVE_OPTION:
-                        fpath = fc.getSelectedFile().getPath()
-                        config = self.prepare_to_save()
-                        try:
-                            with open(fpath, 'wb') as f:
-                                dump(','.join(self.tab_names), f)
-                                dump(config, f)
-                            self._cph.issue_log_message('Configuration exported to "{}".'.format(fpath), INFO)
-                        except IOError:
-                            self._cph.issue_log_message('Error exporting config to "{}".'.format(fpath), ERROR, True)
-                    if result == JFileChooser.CANCEL_OPTION:
-                        self._cph.issue_log_message('User canceled configuration export to file.', INFO)
+                break
+            if tabcount > 0:
+                fc = JFileChooser()
+                result = fc.showSaveDialog(self)
+                if result == JFileChooser.APPROVE_OPTION:
+                    fpath = fc.getSelectedFile().getPath()
+                    config = self.prepare_to_save()
+                    try:
+                        with open(fpath, 'wb') as f:
+                            dump(','.join(self.tab_names), f)
+                            dump(config, f)
+                        self._cph.issue_log_message('Configuration exported to "{}".'.format(fpath), INFO)
+                    except IOError:
+                        self._cph.issue_log_message('Error exporting config to "{}".'.format(fpath), ERROR, True)
+                if result == JFileChooser.CANCEL_OPTION:
+                    self._cph.issue_log_message('User canceled configuration export to file.', INFO)
 
     def load_config(self, replace_config_tabs, config=None):
         temp_names = self.tab_names[:]
         tabs_to_remove = {}
         tabcount = len(self.tab_names)
+
+        # Modify existing and mark for purge where applicable
         for tab_name in self.tab_names:
             for tab in self._cph.maintab.get_config_tabs():
                 if tab_name == tab.namepane_txtfield.getText():
@@ -521,18 +524,14 @@ class OptionsTab(SubTab, ChangeListener):
                         self.set_tab_values_from_import(tab, tab_name, config)
                     else:
                         self.set_tab_values_from_quickload(tab, tab_name)
-                    temp_names.remove(tab_name)
+                    if tab_name in temp_names:
+                        temp_names.remove(tab_name)
                     tabs_to_remove[tab] = False
                 if tab not in tabs_to_remove:
                     tabs_to_remove[tab] = True
                     tabcount += 1
 
-                # Match UI to loaded config
-                if tab.msg_mod_radio_resp.isSelected():
-                    tab.msg_mod_radio_resp.doClick()
-                if tab.msg_mod_radio_both.isSelected():
-                    tab.msg_mod_radio_both.doClick()
-
+        # Import and purge if applicable
         for k, v in tabs_to_remove.items():
             if v and replace_config_tabs:
                 MainTab.mainpane.remove(k)
@@ -542,6 +541,15 @@ class OptionsTab(SubTab, ChangeListener):
             else:
                 self.set_tab_values_from_quickload(ConfigTab(self._cph), tab_name)
             tabcount += 1
+
+        # Match UI to loaded config
+        for tab in self._cph.maintab.get_config_tabs():
+            if tab.msg_mod_radio_resp.isSelected():
+                tab.msg_mod_radio_resp.doClick()
+            if tab.msg_mod_radio_both.isSelected():
+                tab.msg_mod_radio_both.doClick()
+
+        # Restore tab order
         x = 0
         for tab_name in self.tab_names:
             for tab in self._cph.maintab.get_config_tabs():
@@ -554,6 +562,7 @@ class OptionsTab(SubTab, ChangeListener):
                         ConfigTab.move_tab_fwd(tab)
                     break
             x += 1
+
         ConfigTab.disable_all_cache_viewers()
 
     def prepare_to_save(self):
