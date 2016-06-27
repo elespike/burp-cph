@@ -172,6 +172,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             return
         req = messageInfo.getRequest()
         req_as_string = self.helpers.bytesToString(req)
+        content_length_pattern = r'Content-Length: \d+\r\n'
+        content_length_repl = 'Content-Length: {}\r\n'
         set_cache = False
         if messageIsRequest:
             for tab in self.maintab.get_config_tabs():
@@ -183,24 +185,27 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     req_as_string = self.modify_message(tab, req_as_string)
                     # URL-encode the first line of the request in case it was modified
                     first_req_line_old = req_as_string.split('\r\n')[0].split(' ')
+                    debug('first_req_line_old is:\r\n{}'.format(' '.join(first_req_line_old)))
                     first_req_line_new = '{} {} {}'.format(
                         first_req_line_old[0],
                         '+'.join([self.helpers.urlEncode(chars) for chars in first_req_line_old[1:-1]]),
                         first_req_line_old[-1])
-                    req_as_string = req_as_string.replace(''.join(first_req_line_old), first_req_line_new)
+                    debug('first_req_line_new is:\r\n{}'.format(first_req_line_new))
+                    req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
+                    debug('Actual first line of request is:\r\n{}'.format(req_as_string.split('\r\n')[0]))
                     req = self.helpers.stringToBytes(req_as_string)
 
-            for tab in self.maintab.get_config_tabs():
-                if set_cache:
-                    tab.param_handl_cached_req_viewer.setMessage(req, False)
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
-                    tab.cached_request = req
-                    set_cache = True
-                else:
-                    set_cache = False
-
+            requestinfo = self.helpers.analyzeRequest(req)
+            content_length = len(req) - requestinfo.getBodyOffset()
+            req_as_string = re.sub(content_length_pattern,
+                                   content_length_repl.format(content_length),
+                                   req_as_string,
+                                   1)
+            req = self.helpers.stringToBytes(req_as_string)
             messageInfo.setRequest(req)
-            new_headers = self.helpers.analyzeRequest(messageInfo).getHeaders()
+
+            requestinfo = self.helpers.analyzeRequest(req)
+            new_headers = requestinfo.getHeaders()
             httpsvc = messageInfo.getHttpService()
             port = httpsvc.getPort()
             for header in new_headers:
@@ -213,6 +218,15 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     break
             debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
+            for tab in self.maintab.get_config_tabs():
+                if set_cache:
+                    tab.param_handl_cached_req_viewer.setMessage(req, False)
+                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                    tab.cached_request = req
+                    set_cache = True
+                else:
+                    set_cache = False
+
         if not messageIsRequest:
             resp = messageInfo.getResponse()
             resp_as_string = self.helpers.bytesToString(resp)
@@ -222,6 +236,15 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     resp_as_string = self.modify_message(tab, resp_as_string)
                     resp = self.helpers.stringToBytes(resp_as_string)
+
+            responseinfo = self.helpers.analyzeResponse(resp)
+            content_length = len(resp) - responseinfo.getBodyOffset()
+            resp_as_string = re.sub(content_length_pattern,
+                                   content_length_repl.format(content_length),
+                                   resp_as_string,
+                                   1)
+            resp = self.helpers.stringToBytes(resp_as_string)
+            messageInfo.setResponse(resp)
 
             for tab in self.maintab.get_config_tabs():
                 if set_cache:
@@ -233,8 +256,6 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     set_cache = True
                 else:
                     set_cache = False
-
-            messageInfo.setResponse(resp)
 
     @staticmethod
     def is_in_cph_scope(msg_as_string, is_request, tab):
