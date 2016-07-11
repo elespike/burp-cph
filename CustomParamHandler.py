@@ -88,20 +88,30 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
     def issue_request(self, tab):
         tab.request = tab.param_handl_request_editor.getMessage()
         req_as_string = self.helpers.bytesToString(tab.request)
-        cookies = self.callbacks.getCookieJarContents()
-        for cookie in cookies:
-            cname = cookie.getName()
-            if cname in req_as_string:
-                cvalue = cookie.getValue()
-                match = re.search(cname + r'=(.+)[;\r]', req_as_string)
-                if match:
-                    req_as_string = req_as_string.replace(match.group(1), cvalue)
-                    tab.request = self.helpers.stringToBytes(req_as_string)
-                    tab.param_handl_request_editor.setMessage(tab.request, True)
-                    info('Cookie updated: {}={}'.format(cname, cvalue))
-
         req_info = self.helpers.analyzeRequest(tab.request)
         headers = req_info.getHeaders()
+
+        if tab.update_cookies_chkbox.isSelected():
+            cookies = self.callbacks.getCookieJarContents()
+            for cookie in cookies:
+                cname = cookie.getName()
+                for header in headers:
+                    if header.startswith('Cookie: '):
+                        debug('Cookie header from derivation request:\r\n{}'.format(header))
+                        if not header.endswith(';'):
+                            header += ';'
+                        match = re.search(r'[ ;]' + cname + r'=.+?[;\r]', header)
+                        if match:
+                            info('Cookie found in derivation request headers: {}'.format(cname))
+                            cvalue = cookie.getValue()
+                            debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
+                            if cvalue:
+                                exp = re.compile('({}=).+?([;\r])'.format(cname))
+                                req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
+                                tab.request = self.helpers.stringToBytes(req_as_string)
+                                tab.param_handl_request_editor.setMessage(tab.request, True)
+                                info('Cookie updated: {}={}'.format(cname, cvalue))
+
         host = ''
         port = 80
         https = tab.https_chkbox.isSelected()

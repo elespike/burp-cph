@@ -164,6 +164,7 @@ class OptionsTab(SubTab, ChangeListener):
     configname_single_value = 'single_value'
     configname_single_regex = 'single_regex'
     configname_https = 'https'
+    configname_update_cookies = 'update_cookies'
     configname_single_request = 'single_request'
     configname_single_response = 'single_response'
     configname_macro_value = 'macro_value'
@@ -352,6 +353,8 @@ class OptionsTab(SubTab, ChangeListener):
                                      tab_name + self.configname_single_regex) == 'True')
         tab.https_chkbox.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_https) == 'True')
+        tab.update_cookies_chkbox.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_update_cookies) == 'True')
         tab.param_handl_request_editor.setMessage(self._cph.helpers.stringToBytes(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_single_request)), True)
         tab.param_handl_response_editor.setMessage(self._cph.helpers.stringToBytes(
@@ -422,6 +425,8 @@ class OptionsTab(SubTab, ChangeListener):
                                  config[tab_name + self.configname_single_regex])
         tab.https_chkbox.setSelected(
             config[tab_name + self.configname_https])
+        tab.update_cookies_chkbox.setSelected(
+            config[tab_name + self.configname_update_cookies])
         tab.param_handl_request_editor.setMessage(self._cph.helpers.stringToBytes(
             config[tab_name + self.configname_single_request]), True)
         tab.param_handl_response_editor.setMessage(self._cph.helpers.stringToBytes(
@@ -451,7 +456,8 @@ class OptionsTab(SubTab, ChangeListener):
                 replace_config_tabs = True
                 self._cph.issue_log_message('Replacing configuration...', INFO)
             if result != 2 and result != -1:  # Cancel or close dialog
-                self._cph.issue_log_message('Merging configuration...', INFO)
+                if result != 0:
+                    self._cph.issue_log_message('Merging configuration...', INFO)
                 if c == self.BTN_QUICKLOAD_LBL:
                     try:
                         self.tab_names = self._cph.callbacks.loadExtensionSetting(self.configname_tab_names).split(',')
@@ -603,6 +609,7 @@ class OptionsTab(SubTab, ChangeListener):
             config[name + self.configname_single_regex] = self.get_exp_pane_values(
                 tab.param_handl_exp_pane_extract_single)
             config[name + self.configname_https] = tab.https_chkbox.isSelected()
+            config[name + self.configname_update_cookies] = tab.update_cookies_chkbox.isSelected()
             config[name + self.configname_single_request] = self._cph.helpers.bytesToString(
                 tab.param_handl_request_editor.getMessage())
             config[name + self.configname_single_response] = self._cph.helpers.bytesToString(
@@ -678,6 +685,7 @@ class ConfigTab(SubTab):
     TXT_FIELD_SIZE = 45
 
     HTTPS_LBL = 'Issue over HTTPS'
+    UPDATE_COOKIES_LBL = 'Update cookies'
     MATCH_OPTIONS_LBL = 'Match options'
     REPLACE_OPTIONS_LBL = 'Replace options'
     PARAM_HANDL_BTN_ISSUE_LBL = 'Issue'
@@ -787,6 +795,7 @@ class ConfigTab(SubTab):
         self.param_handl_radio_extract_macro = JRadioButton(self.PARAM_HANDL_RADIO_EXTRACT_MACRO_LBL)
         self.param_handl_radio_extract_macro.addActionListener(self)
         self.https_chkbox = JCheckBox(self.HTTPS_LBL)
+        self.update_cookies_chkbox = JCheckBox(self.UPDATE_COOKIES_LBL, True)
 
         self.build_msg_mod_pane(msg_mod_layout_pane)
         self.build_param_handl_pane(param_handl_layout_pane)
@@ -908,7 +917,10 @@ class ConfigTab(SubTab):
         issue_request_pane.add(JLabel(self.PARAM_HANDL_LBL_EXTRACT_VALUE))
         derive_param_single_card.add(issue_request_pane, constraints)
         constraints.gridy = 3
-        derive_param_single_card.add(self.https_chkbox, constraints)
+        chkbox_pane = JPanel(FlowLayout(FlowLayout.LEADING))
+        chkbox_pane.add(self.update_cookies_chkbox)
+        chkbox_pane.add(self.https_chkbox)
+        derive_param_single_card.add(chkbox_pane, constraints)
         constraints.gridy = 4
         splitpane = JSplitPane()
         splitpane.setLeftComponent(self.param_handl_request_editor.getComponent())
