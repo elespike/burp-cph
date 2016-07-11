@@ -102,7 +102,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                             header += ';'
                         match = re.search(r'[ ;]' + cname + r'=.+?[;\r]', header)
                         if match:
-                            info('Cookie found in derivation request headers: {}'.format(cname))
+                            debug('Cookie found in derivation request headers: {}'.format(cname))
                             cvalue = cookie.getValue()
                             debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
                             if cvalue:
