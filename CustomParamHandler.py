@@ -91,9 +91,27 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         req_info = self.helpers.analyzeRequest(tab.request)
         headers = req_info.getHeaders()
 
+        # Update host header
+        host = ''
+        port = 80
+        https = tab.https_chkbox.isSelected()
+        if https:
+            port = 443
+        for header in headers:
+            if header.startswith(self._hostheader):
+                host = header.replace(self._hostheader, '')
+                if ':' in host:
+                    host, port = self.split_host_port(host)
+        debug('Host is: {}'.format(host))
+
+        # Update cookies
         if tab.update_cookies_chkbox.isSelected():
             cookies = self.callbacks.getCookieJarContents()
             for cookie in cookies:
+                cdom = cookie.getDomain()
+                if host not in cdom:
+                    continue
+                debug('Cookie domain is: {}'.format(cdom))
                 cname = cookie.getName()
                 for header in headers:
                     if header.startswith('Cookie: '):
@@ -110,18 +128,9 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                                 req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
                                 tab.request = self.helpers.stringToBytes(req_as_string)
                                 tab.param_handl_request_editor.setMessage(tab.request, True)
-                                info('Cookie updated: {}={}'.format(cname, cvalue))
+                                info('Cookie updated on tab "{}": {}={}'.format(
+                                    tab.namepane_txtfield.getText(), cname, cvalue))
 
-        host = ''
-        port = 80
-        https = tab.https_chkbox.isSelected()
-        if https:
-            port = 443
-        for header in headers:
-            if header.startswith(self._hostheader):
-                host = header.replace(self._hostheader, '')
-                if ':' in host:
-                    host, port = self.split_host_port(host)
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
             resp = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
@@ -229,11 +238,15 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
             for tab in self.maintab.get_config_tabs():
+                debug(
+                    'set_cache is {}, working on request for tab {}'.format(set_cache, tab.namepane_txtfield.getText()))
                 if set_cache:
                     tab.param_handl_cached_req_viewer.setMessage(req, False)
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                    debug('Cached request viewer updated for tab {}!'.format(tab.namepane_txtfield.getText()))
+                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab, True):
                     tab.cached_request = req
                     set_cache = True
+                    debug('Cached request set for tab {}!'.format(tab.namepane_txtfield.getText()))
                 else:
                     set_cache = False
 
@@ -250,25 +263,30 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             responseinfo = self.helpers.analyzeResponse(resp)
             content_length = len(resp) - responseinfo.getBodyOffset()
             resp_as_string = re.sub(content_length_pattern,
-                                   content_length_repl.format(content_length),
-                                   resp_as_string,
-                                   1)
+                                    content_length_repl.format(content_length),
+                                    resp_as_string,
+                                    1)
             resp = self.helpers.stringToBytes(resp_as_string)
             messageInfo.setResponse(resp)
 
             for tab in self.maintab.get_config_tabs():
+                debug('set_cache is {}, working on response for tab {}'.format(set_cache,
+                                                                               tab.namepane_txtfield.getText()))
                 if set_cache:
                     tab.param_handl_cached_resp_viewer.setMessage(resp, False)
                     if not tab.param_handl_radio_extract_cached.isEnabled():
                         tab.param_handl_radio_extract_cached.setEnabled(True)
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                    debug('Cached response viewer updated, radio enabled for tab {}!'.format(
+                        tab.namepane_txtfield.getText()))
+                if self.is_in_cph_scope(req_as_string, True, tab, True):
                     tab.cached_response = resp
                     set_cache = True
+                    debug('Cached response set for tab {}!'.format(tab.namepane_txtfield.getText()))
                 else:
                     set_cache = False
 
     @staticmethod
-    def is_in_cph_scope(msg_as_string, is_request, tab):
+    def is_in_cph_scope(msg_as_string, is_request, tab, caching=False):
         rms_radio_type_requests_selected = tab.msg_mod_radio_req.isSelected()
         rms_radio_type_responses_selected = tab.msg_mod_radio_resp.isSelected()
         rms_radio_type_both_selected = tab.msg_mod_radio_both.isSelected()
@@ -277,15 +295,17 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         rms_field_modifymatch_txt, \
         rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
 
-        if is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected):
-            debug('is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected): {}'.format(
-                is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected)))
-        elif not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected):
-            debug('not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected): {}'.format(
-                not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected)))
-        else:
-            debug('Returning False from is_in_cph_scope')
-            return False
+        if not caching:
+            if is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected):
+                debug('is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected): {}'.format(
+                    is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected)))
+            elif not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected):
+                debug(
+                    'not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected): {}'.format(
+                        not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected)))
+            else:
+                debug('Returning False from is_in_cph_scope')
+                return False
 
         if rms_radio_modifyall_selected:
             return True
