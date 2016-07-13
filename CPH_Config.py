@@ -1,9 +1,13 @@
+########################################################################################################################
+#  Begin CPH_Config.py Imports
+########################################################################################################################
+
 from pickle import dump, load
 from thread import start_new_thread
 from logging import DEBUG, ERROR, INFO, WARNING, getLevelName
 from webbrowser import open_new_tab as browser_open
 
-import quickstart
+from Quickstart import Quickstart
 from burp import ITab
 from javax.swing import \
     BorderFactory, \
@@ -36,6 +40,13 @@ from java.awt import \
     Insets, \
     Font
 
+########################################################################################################################
+#  End CPH_Config.py Imports
+########################################################################################################################
+
+########################################################################################################################
+#  Begin CPH_Config.py
+########################################################################################################################
 
 class MainTab(ITab, ChangeListener):
     mainpane = JTabbedPane()
@@ -253,7 +264,7 @@ class OptionsTab(SubTab, ChangeListener):
         quickstart_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         quickstart_pane.setBorder(BorderFactory.createTitledBorder(self.QUICKSTART_PANE_LBL))
         quickstart_pane.getBorder().setTitleFont(Font(Font.SANS_SERIF, Font.ITALIC, 16))
-        quickstart_text_lbl = JLabel(quickstart.text)
+        quickstart_text_lbl = JLabel(Quickstart.text)
         quickstart_text_lbl.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
         quickstart_pane.add(quickstart_text_lbl)
 
@@ -1076,3 +1087,8 @@ class FlexibleCardLayout(CardLayout):
             if comp.isVisible():
                 return comp
         return None
+
+########################################################################################################################
+#  End CPH_Config.py
+########################################################################################################################
+
