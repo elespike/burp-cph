@@ -1,3 +1,7 @@
+########################################################################################################################
+#  Begin CustomParameterHandler.py Imports
+########################################################################################################################
+
 import re
 from logging import DEBUG, ERROR, INFO, WARNING, debug, error, exception, info, warning, basicConfig, getLogger
 from sys import stdout
@@ -9,6 +13,13 @@ from burp import ISessionHandlingAction
 from burp import IContextMenuFactory
 from javax.swing import JMenuItem
 
+########################################################################################################################
+#  End CustomParameterHandler.py Imports
+########################################################################################################################
+
+########################################################################################################################
+#  Begin CustomParameterHandler.py
+########################################################################################################################
 
 class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContextMenuFactory):
     def __init__(self):
@@ -491,3 +502,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             return original_msg
 
         return msg_as_string
+
+########################################################################################################################
+#  End CustomParameterHandler.py
+########################################################################################################################
