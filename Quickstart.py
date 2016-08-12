@@ -55,7 +55,7 @@ class Quickstart:
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This strategy, therefore, increases match accuracy.<br>
     <h2>Please view the full guide for explanations on the remaining options.</h2>
     </html>"""
-    
+
     def __init__(self):
         pass
 
