@@ -218,7 +218,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     debug('first_req_line_old is:\r\n{}'.format(' '.join(first_req_line_old)))
                     first_req_line_new = '{} {} {}'.format(
                         first_req_line_old[0],
-                        '+'.join([self.helpers.urlEncode(chars) for chars in first_req_line_old[1:-1]]),
+                        ''.join([self.helpers.urlEncode(char) if char!= '%' else char
+                                 for char in '+'.join(first_req_line_old[1:-1])]),
                         first_req_line_old[-1])
                     debug('first_req_line_new is:\r\n{}'.format(first_req_line_new))
                     req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
