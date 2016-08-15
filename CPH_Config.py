@@ -533,7 +533,7 @@ class OptionsTab(SubTab, ChangeListener):
                 break
             if tabcount > 0:
                 try:
-                    config = self.prepare_to_save(MainTab.get_config_tabs())
+                    config = self.prepare_to_save(MainTab.get_config_tabs)
                     self._cph.callbacks.saveExtensionSetting(self.configname_tab_names, ','.join(self.tab_names))
                     for k, v in config.items():
                         self._cph.callbacks.saveExtensionSetting(k, str(v))
@@ -554,7 +554,7 @@ class OptionsTab(SubTab, ChangeListener):
                 result = fc.showSaveDialog(self)
                 if result == JFileChooser.APPROVE_OPTION:
                     fpath = fc.getSelectedFile().getPath()
-                    config = self.prepare_to_save(MainTab.get_config_tabs())
+                    config = self.prepare_to_save(MainTab.get_config_tabs)
                     try:
                         with open(fpath, 'wb') as f:
                             dump(','.join(self.tab_names), f)
@@ -620,18 +620,18 @@ class OptionsTab(SubTab, ChangeListener):
 
         ConfigTab.disable_all_cache_viewers()
 
-    def prepare_to_save(self, tabs):
+    def prepare_to_save(self, gen_func):
         self.tab_names = []
         config = {}
         tabcount = 0
-        _tabs = tabs
+        _tabs = gen_func.__call__()
         for tab in _tabs:
             tabcount += 1
             if tabcount > 1:
                 MainTab.check_configtab_names()
 
         # Need to reset the iterator!
-        _tabs = tabs
+        _tabs = gen_func.__call__()
         for tab in _tabs:
             name = tab.namepane_txtfield.getText()
             self.tab_names.append(name)
@@ -1068,17 +1068,20 @@ class ConfigTab(SubTab):
             MainTab.mainpane.setSelectedIndex(desired_index)
 
     def clone_tab(self, tab):
+        def gen_func():
+            for _tab in [tab]:
+                yield _tab
         desired_index = MainTab.mainpane.getSelectedIndex() + 1
         newtab = ConfigTab(self._cph)
         OptionsTab.set_tab_name(newtab, tab.namepane_txtfield.getText())
-        config = self._cph.maintab.options_tab.prepare_to_save([tab])
+        config = self._cph.maintab.options_tab.prepare_to_save(gen_func)
         self._cph.maintab.options_tab.load_config(False, config)
         if desired_index < MainTab.mainpane.getComponentCount() - 2:
             MainTab.mainpane.setSelectedIndex(0)
             MainTab.mainpane.add(newtab, desired_index)
             MainTab.mainpane.setTabComponentAt(desired_index, newtab.tabtitle)
             MainTab.mainpane.setSelectedIndex(desired_index)
-        self._cph.maintab.options_tab.prepare_to_save(MainTab.get_config_tabs())
+        self._cph.maintab.options_tab.prepare_to_save(MainTab.get_config_tabs)
 
     def disable_cache_viewers(self):
         self.cached_request, self.cached_response = self.initialize_req_resp()
