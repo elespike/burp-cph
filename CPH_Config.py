@@ -50,6 +50,7 @@ from java.awt import \
 
 class MainTab(ITab, ChangeListener):
     mainpane = JTabbedPane()
+    configtab_names = {}
 
     def __init__(self, cph):
         MainTab.mainpane.addChangeListener(self)
@@ -70,12 +71,42 @@ class MainTab(ITab, ChangeListener):
         for message in messages:
             ConfigTab(self._cph, message)
 
-    def get_config_tabs(self):
-        components = self.mainpane.getComponents()
+    @staticmethod
+    def get_config_tabs():
+        components = MainTab.mainpane.getComponents()
         for i in range(len(components)):
             for tab in components:
-                if isinstance(tab, ConfigTab) and i == self.mainpane.indexOfComponent(tab):
+                if isinstance(tab, ConfigTab) and i == MainTab.mainpane.indexOfComponent(tab):
                     yield tab
+
+    @staticmethod
+    def get_config_tab_names():
+        components = MainTab.mainpane.getComponents()
+        for i in range(len(components)):
+            for tab in components:
+                if isinstance(tab, ConfigTab) and i == MainTab.mainpane.indexOfComponent(tab):
+                    yield tab.namepane_txtfield.getText()
+
+    @staticmethod
+    def check_configtab_names():
+        x = 0
+        for name in MainTab.get_config_tab_names():
+            MainTab.configtab_names[x] = name
+            x += 1
+        indices_to_rename = {}
+        for tab_index_1, tab_name_1 in MainTab.configtab_names.items():
+            for tab_index_2, tab_name_2 in MainTab.configtab_names.items():
+                if tab_name_2 not in indices_to_rename:
+                    indices_to_rename[tab_name_2] = []
+                if tab_name_1 == tab_name_2 and tab_index_1 != tab_index_2:
+                    indices_to_rename[tab_name_2].append(tab_index_2 + 1)
+        for k, v in indices_to_rename.items():
+            indices_to_rename[k] = set(sorted(v))
+        for tab_name, indices in indices_to_rename.items():
+            x = 1
+            for i in indices:
+                OptionsTab.set_tab_name(MainTab.mainpane.getComponentAt(i), tab_name + ' (%s)' % x)
+                x += 1
 
     def stateChanged(self, e):
         if e.getSource() == self.mainpane:
@@ -452,8 +483,9 @@ class OptionsTab(SubTab, ChangeListener):
             replace_config_tabs = False
             result = 0
             tabcount = 0
-            for tab in self._cph.maintab.get_config_tabs():
+            for tab in MainTab.get_config_tabs():
                 tabcount += 1
+                break
             if tabcount > 0:
                 result = JOptionPane.showOptionDialog(self,
                                                       'Would you like to Purge or Keep all existing tabs?',
@@ -496,20 +528,25 @@ class OptionsTab(SubTab, ChangeListener):
 
         if c == self.BTN_QUICKSAVE_LBL:
             tabcount = 0
-            for tab in self._cph.maintab.get_config_tabs():
+            for tab in MainTab.get_config_tabs():
                 tabcount += 1
-                if tabcount > 0:
-                    config = self.prepare_to_save()
+                break
+            if tabcount > 0:
+                try:
+                    config = self.prepare_to_save(MainTab.get_config_tabs())
                     self._cph.callbacks.saveExtensionSetting(self.configname_tab_names, ','.join(self.tab_names))
                     for k, v in config.items():
                         self._cph.callbacks.saveExtensionSetting(k, str(v))
+                    self._cph.issue_log_message('Configuration quicksaved.', INFO)
+                except StandardError:
+                    self._cph.issue_log_message('Error during quicksave.', ERROR, True)
 
         if c == self.BTN_DOCS_LBL:
             browser_open(self.DOCS_URL)
 
         if c == self.BTN_EXPORTCONFIG_LBL:
             tabcount = 0
-            for tab in self._cph.maintab.get_config_tabs():
+            for tab in MainTab.get_config_tabs():
                 tabcount += 1
                 break
             if tabcount > 0:
@@ -517,7 +554,7 @@ class OptionsTab(SubTab, ChangeListener):
                 result = fc.showSaveDialog(self)
                 if result == JFileChooser.APPROVE_OPTION:
                     fpath = fc.getSelectedFile().getPath()
-                    config = self.prepare_to_save()
+                    config = self.prepare_to_save(MainTab.get_config_tabs())
                     try:
                         with open(fpath, 'wb') as f:
                             dump(','.join(self.tab_names), f)
@@ -535,7 +572,7 @@ class OptionsTab(SubTab, ChangeListener):
 
         # Modify existing and mark for purge where applicable
         for tab_name in self.tab_names:
-            for tab in self._cph.maintab.get_config_tabs():
+            for tab in MainTab.get_config_tabs():
                 if tab_name == tab.namepane_txtfield.getText():
                     if config is not None:
                         self.set_tab_values_from_import(tab, tab_name, config)
@@ -560,38 +597,43 @@ class OptionsTab(SubTab, ChangeListener):
             tabcount += 1
 
         # Match UI to loaded config
-        for tab in self._cph.maintab.get_config_tabs():
+        for tab in MainTab.get_config_tabs():
             if tab.msg_mod_radio_resp.isSelected():
                 tab.msg_mod_radio_resp.doClick()
             if tab.msg_mod_radio_both.isSelected():
                 tab.msg_mod_radio_both.doClick()
 
         # Restore tab order
-        x = 0
-        for tab_name in self.tab_names:
-            for tab in self._cph.maintab.get_config_tabs():
-                if tab_name == tab.namepane_txtfield.getText():
-                    MainTab.mainpane.setSelectedIndex(
-                        MainTab.mainpane.indexOfComponent(tab))
-                    for i in range(tabcount):
-                        ConfigTab.move_tab_back(tab)
-                    for i in range(x):
-                        ConfigTab.move_tab_fwd(tab)
-                    break
-            x += 1
+        if len(self.tab_names) > 1:
+            x = 0
+            for tab_name in self.tab_names:
+                for tab in MainTab.get_config_tabs():
+                    if tab_name == tab.namepane_txtfield.getText():
+                        MainTab.mainpane.setSelectedIndex(
+                            MainTab.mainpane.indexOfComponent(tab))
+                        for i in range(tabcount):
+                            ConfigTab.move_tab_back(tab)
+                        for i in range(x):
+                            ConfigTab.move_tab_fwd(tab)
+                        break
+                x += 1
 
         ConfigTab.disable_all_cache_viewers()
 
-    def prepare_to_save(self):
+    def prepare_to_save(self, tabs):
         self.tab_names = []
         config = {}
-        i = 1
-        for tab in self._cph.maintab.get_config_tabs():
+        tabcount = 0
+        _tabs = tabs
+        for tab in _tabs:
+            tabcount += 1
+            if tabcount > 1:
+                MainTab.check_configtab_names()
+
+        # Need to reset the iterator!
+        _tabs = tabs
+        for tab in _tabs:
             name = tab.namepane_txtfield.getText()
-            if name in self.tab_names:
-                name += ' (%s)' % i
-                self.set_tab_name(tab, name)
-                i += 1
             self.tab_names.append(name)
             name += '|'
             config[name + self.configname_enabled] = tab.tabtitle.enable_chkbox.isSelected()
@@ -725,6 +767,7 @@ class ConfigTab(SubTab):
     TAB_NEW_NAME = 'Unconfigured'
     BTN_BACK_LBL = '<'
     BTN_FWD_LBL = '>'
+    BTN_CLONETAB_LBL = 'Clone'
 
     def __init__(self, cph, message=None):
         SubTab.__init__(self, cph)
@@ -748,9 +791,13 @@ class ConfigTab(SubTab):
         btn_back.addActionListener(self)
         btn_fwd = JButton(self.BTN_FWD_LBL)
         btn_fwd.addActionListener(self)
+        btn_clonetab = JButton(self.BTN_CLONETAB_LBL)
+        btn_clonetab.addActionListener(self)
         controlpane = JPanel(FlowLayout(FlowLayout.LEADING))
         controlpane.add(btn_back)
         controlpane.add(btn_fwd)
+        controlpane.add(self.create_blank_space())
+        controlpane.add(btn_clonetab)
 
         namepane = JPanel(FlowLayout(FlowLayout.LEADING))
         namepane.add(self.set_title_font(JLabel(self.TAB_NAME_LBL)))
@@ -1020,6 +1067,19 @@ class ConfigTab(SubTab):
             MainTab.mainpane.setTabComponentAt(desired_index, tab.tabtitle)
             MainTab.mainpane.setSelectedIndex(desired_index)
 
+    def clone_tab(self, tab):
+        desired_index = MainTab.mainpane.getSelectedIndex() + 1
+        newtab = ConfigTab(self._cph)
+        OptionsTab.set_tab_name(newtab, tab.namepane_txtfield.getText())
+        config = self._cph.maintab.options_tab.prepare_to_save([tab])
+        self._cph.maintab.options_tab.load_config(False, config)
+        if desired_index < MainTab.mainpane.getComponentCount() - 2:
+            MainTab.mainpane.setSelectedIndex(0)
+            MainTab.mainpane.add(newtab, desired_index)
+            MainTab.mainpane.setTabComponentAt(desired_index, newtab.tabtitle)
+            MainTab.mainpane.setSelectedIndex(desired_index)
+        self._cph.maintab.options_tab.prepare_to_save(MainTab.get_config_tabs())
+
     def disable_cache_viewers(self):
         self.cached_request, self.cached_response = self.initialize_req_resp()
         self.param_handl_cached_req_viewer.setMessage(self.cached_request, False)
@@ -1064,6 +1124,9 @@ class ConfigTab(SubTab):
             self.disable_all_cache_viewers()
         if c == self.BTN_FWD_LBL:
             self.move_tab_fwd(self)
+            self.disable_all_cache_viewers()
+        if c == self.BTN_CLONETAB_LBL:
+            self.clone_tab(self)
             self.disable_all_cache_viewers()
 
 
