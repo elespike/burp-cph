@@ -9,36 +9,37 @@ from webbrowser import open_new_tab as browser_open
 
 from Quickstart import Quickstart
 from burp import ITab
-from javax.swing import \
-    BorderFactory, \
-    ButtonGroup, \
-    JButton, \
-    JCheckBox, \
-    JFileChooser, \
-    JLabel, \
-    JOptionPane, \
-    JPanel, \
-    JRadioButton, \
-    JScrollPane, \
-    JSeparator, \
-    JSpinner, \
-    JSplitPane, \
-    JTabbedPane, \
-    JTextField, \
-    SpinnerNumberModel
+from javax.swing import (
+    BorderFactory,
+    ButtonGroup,
+    JButton,
+    JCheckBox,
+    JFileChooser,
+    JLabel,
+    JOptionPane,
+    JPanel,
+    JRadioButton,
+    JScrollPane,
+    JSeparator,
+    JSpinner,
+    JSplitPane,
+    JTabbedPane,
+    JTextField,
+    JTextArea,
+    SpinnerNumberModel)
 from javax.swing.event import ChangeListener
-from java.awt.event import \
-    ActionListener, \
-    KeyListener, \
-    MouseAdapter
-from java.awt import \
-    CardLayout, \
-    Color, \
-    FlowLayout, \
-    GridBagConstraints, \
-    GridBagLayout, \
-    Insets, \
-    Font
+from java.awt.event import (
+    ActionListener,
+    KeyListener,
+    MouseAdapter)
+from java.awt import (
+    CardLayout,
+    Color,
+    FlowLayout,
+    GridBagConstraints,
+    GridBagLayout,
+    Insets,
+    Font)
 
 ########################################################################################################################
 #  End CPH_Config.py Imports
@@ -746,7 +747,7 @@ class ConfigTab(SubTab):
     PARAM_HANDL_LBL_EXTRACT_VALUE = 'this request (left) to extract the parameter value from its response (right):'
     PARAM_HANDL_LBL_MATCH_EXP = 'Determine where to insert/replace the parameter using this expression:'
     PARAM_HANDL_LBL_MATCH_RANGE = 'Match indices and/or slices:'
-    PARAM_HANDL_LBL_STATIC_VALUE = 'Insert or replace existing value with this one in applicable requests:'
+    PARAM_HANDL_LBL_STATIC_VALUE = 'Insert or replace existing value with this one in applicable requests (newlines are treated as "\\r\\n"):'
     PARAM_HANDL_RADIO_EXTRACT_SINGLE_LBL = 'Extract value from a response after issuing a single request...'
     PARAM_HANDL_RADIO_EXTRACT_MACRO_LBL = 'Extract value from the final response after running a macro...'
     PARAM_HANDL_RADIO_CACHED_EXP_LBL = '... using this Regular Expression:'
@@ -832,7 +833,7 @@ class ConfigTab(SubTab):
         self.param_handl_exp_pane_extract_cached = self.create_expression_pane()
         self.param_handl_exp_pane_extract_single = self.create_expression_pane()
         self.param_handl_exp_pane_extract_macro = self.create_expression_pane()
-        self.param_handl_txtfield_static_value = JTextField()
+        self.param_handl_txtfield_static_value = JTextArea()
         self.param_handl_txtfield_static_value.setColumns(self.TXT_FIELD_SIZE)
         self.param_handl_cached_req_viewer = self._cph.callbacks.createMessageEditor(None, True)
         self.param_handl_cached_req_viewer.setMessage(self.cached_request, False)
