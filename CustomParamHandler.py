@@ -376,7 +376,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 tab.namepane_txtfield.getText()))
             return original_msg
 
-        replace_value = ph_field_staticvalue_txt
+        replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
         debug('Initial replace value: {}'.format(replace_value))
 
         match = None
