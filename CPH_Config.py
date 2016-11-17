@@ -1051,23 +1051,33 @@ class ConfigTab(SubTab):
 
         constraints = self.initialize_constraints()
         param_derivation_pane.add(self.set_title_font(JLabel(self.MATCH_OPTIONS_LBL)), constraints)
+        constraints.gridx = 0
         constraints.gridy = 1
         param_derivation_pane.add(self.create_blank_space(), constraints)
+        constraints.gridx = 0
         constraints.gridy = 2
         param_derivation_pane.add(self.param_handl_radio_insert, constraints)
         constraints.gridx = 1
-        constraints.gridy = 1
-        param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_RANGE), constraints)
-        constraints.gridy = 2
-        param_derivation_pane.add(param_indices_radio_pane, constraints)
         constraints.gridy = 3
+        param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_RANGE), constraints)
+        constraints.gridx = 1
+        constraints.gridy = 4
+        param_derivation_pane.add(param_indices_radio_pane, constraints)
         constraints.gridx = 0
+        constraints.gridy = 3
         param_derivation_pane.add(self.param_handl_radio_replace, constraints)
         constraints.gridx = 1
+        constraints.gridy = 5
+        constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_txtfield_match_indices, constraints)
+        constraints.gridx = 2
+        constraints.gridy = 3
+        param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 3
+        constraints.gridy = 5
         param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 4
+        constraints.gridy = 5
         param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 0
         constraints.gridy = 4
@@ -1076,26 +1086,36 @@ class ConfigTab(SubTab):
         constraints.gridy = 5
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_exp_pane_target, constraints)
+        constraints.gridx = 0
         constraints.gridy = 6
         constraints.gridwidth = GridBagConstraints.REMAINDER
         param_derivation_pane.add(self.create_blank_space(), constraints)
+        constraints.gridx = 0
         constraints.gridy = 7
         param_derivation_pane.add(JSeparator(), constraints)
+        constraints.gridx = 0
         constraints.gridy = 8
         param_derivation_pane.add(self.create_blank_space(), constraints)
+        constraints.gridx = 0
         constraints.gridwidth = 1
         constraints.gridy = 9
         param_derivation_pane.add(self.set_title_font(JLabel(self.REPLACE_OPTIONS_LBL)), constraints)
+        constraints.gridx = 0
         constraints.gridy = 10
         param_derivation_pane.add(self.create_blank_space(), constraints)
+        constraints.gridx = 0
         constraints.gridy = 11
         param_derivation_pane.add(self.param_handl_radio_static, constraints)
+        constraints.gridx = 0
         constraints.gridy = 12
         param_derivation_pane.add(self.param_handl_radio_extract_cached, constraints)
+        constraints.gridx = 0
         constraints.gridy = 13
         param_derivation_pane.add(self.param_handl_radio_extract_single, constraints)
+        constraints.gridx = 0
         constraints.gridy = 14
         param_derivation_pane.add(self.param_handl_radio_extract_macro, constraints)
+        constraints.gridx = 0
         constraints.gridy = 15
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_cardpanel_static_or_extract, constraints)
