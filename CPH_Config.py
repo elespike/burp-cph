@@ -194,6 +194,9 @@ class OptionsTab(SubTab, ChangeListener):
     configname_modify_exp_regex = 'modify_exp_regex'
     configname_insert = 'insert'
     configname_replace = 'replace'
+    configname_indices_first = 'indices_first'
+    configname_indices_all = 'indices_all'
+    configname_indices_custom = 'indices_custom'
     configname_match_indices = 'match_indices'
     configname_match_value = 'match_value'
     configname_match_value_regex = 'match_value_regex'
@@ -356,6 +359,18 @@ class OptionsTab(SubTab, ChangeListener):
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_insert) == 'True')
         tab.param_handl_radio_replace.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_replace) == 'True')
+        tab.param_handl_radio_indices_first.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_indices_first) == 'True')
+        if tab.param_handl_radio_indices_first.isSelected():
+            tab.param_handl_txtfield_match_indices.setEnabled(False)
+        tab.param_handl_radio_indices_all.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_indices_all) == 'True')
+        if tab.param_handl_radio_indices_all.isSelected():
+            tab.param_handl_txtfield_match_indices.setEnabled(False)
+        tab.param_handl_radio_indices_custom.setSelected(
+            self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_indices_custom) == 'True')
+        if tab.param_handl_radio_indices_custom.isSelected():
+            tab.param_handl_txtfield_match_indices.setEnabled(True)
         tab.param_handl_txtfield_match_indices.setText(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_match_indices))
         self.set_exp_pane_values(tab.param_handl_exp_pane_target,
@@ -434,6 +449,18 @@ class OptionsTab(SubTab, ChangeListener):
             config[tab_name + self.configname_insert])
         tab.param_handl_radio_replace.setSelected(
             config[tab_name + self.configname_replace])
+        tab.param_handl_radio_indices_first.setSelected(
+            config[tab_name + self.configname_indices_first])
+        if tab.param_handl_radio_indices_first.isSelected():
+            tab.param_handl_txtfield_match_indices.setEnabled(False)
+        tab.param_handl_radio_indices_all.setSelected(
+            config[tab_name + self.configname_indices_all])
+        if tab.param_handl_radio_indices_all.isSelected():
+            tab.param_handl_txtfield_match_indices.setEnabled(False)
+        tab.param_handl_radio_indices_custom.setSelected(
+            config[tab_name + self.configname_indices_custom])
+        if tab.param_handl_radio_indices_custom.isSelected():
+           tab.param_handl_txtfield_match_indices.setEnabled(True)
         tab.param_handl_txtfield_match_indices.setText(
             config[tab_name + self.configname_match_indices])
         self.set_exp_pane_values(tab.param_handl_exp_pane_target,
@@ -647,6 +674,9 @@ class OptionsTab(SubTab, ChangeListener):
             config[name + self.configname_modify_exp_regex] = self.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
             config[name + self.configname_insert] = tab.param_handl_radio_insert.isSelected()
             config[name + self.configname_replace] = tab.param_handl_radio_replace.isSelected()
+            config[name + self.configname_indices_first] = tab.param_handl_radio_indices_first.isSelected()
+            config[name + self.configname_indices_all] = tab.param_handl_radio_indices_all.isSelected()
+            config[name + self.configname_indices_custom] = tab.param_handl_radio_indices_custom.isSelected()
             config[name + self.configname_match_indices] = tab.param_handl_txtfield_match_indices.getText()
             config[name + self.configname_match_value], \
             config[name + self.configname_match_value_regex] = self.get_exp_pane_values(
@@ -747,6 +777,9 @@ class ConfigTab(SubTab):
     PARAM_HANDL_LBL_EXTRACT_VALUE = 'this request (left) to extract the parameter value from its response (right):'
     PARAM_HANDL_LBL_MATCH_EXP = 'Determine where to insert/replace the parameter using this expression:'
     PARAM_HANDL_LBL_MATCH_RANGE = 'Match indices and/or slices:'
+    PARAM_HANDL_RADIO_INDICES_FIRST_LBL = 'First '
+    PARAM_HANDL_RADIO_INDICES_ALL_LBL = 'All '
+    PARAM_HANDL_RADIO_INDICES_CUSTOM_LBL = 'Custom '
     PARAM_HANDL_LBL_STATIC_VALUE = 'Insert or replace existing value with this one in applicable requests (newlines are treated as "\\r\\n"):'
     PARAM_HANDL_RADIO_EXTRACT_SINGLE_LBL = 'Extract value from a response after issuing a single request...'
     PARAM_HANDL_RADIO_EXTRACT_MACRO_LBL = 'Extract value from the final response after running a macro...'
@@ -827,8 +860,15 @@ class ConfigTab(SubTab):
         self.param_handl_radio_insert.addActionListener(self)
         self.param_handl_radio_replace = JRadioButton(self.PARAM_HANDL_RADIO_REPLACE_LBL)
         self.param_handl_radio_replace.addActionListener(self)
+        self.param_handl_radio_indices_first = JRadioButton(self.PARAM_HANDL_RADIO_INDICES_FIRST_LBL, True)
+        self.param_handl_radio_indices_first.addActionListener(self)
+        self.param_handl_radio_indices_all = JRadioButton(self.PARAM_HANDL_RADIO_INDICES_ALL_LBL)
+        self.param_handl_radio_indices_all.addActionListener(self)
+        self.param_handl_radio_indices_custom = JRadioButton(self.PARAM_HANDL_RADIO_INDICES_CUSTOM_LBL)
+        self.param_handl_radio_indices_custom.addActionListener(self)
         self.param_handl_txtfield_match_indices = JTextField()
         self.param_handl_txtfield_match_indices.setText('0')
+        self.param_handl_txtfield_match_indices.setEnabled(False)
         self.param_handl_exp_pane_target = self.create_expression_pane()
         self.param_handl_exp_pane_extract_cached = self.create_expression_pane()
         self.param_handl_exp_pane_extract_single = self.create_expression_pane()
@@ -931,6 +971,16 @@ class ConfigTab(SubTab):
         param_group_2.add(self.param_handl_radio_extract_single)
         param_group_2.add(self.param_handl_radio_extract_macro)
 
+        param_group_indices = ButtonGroup()
+        param_group_indices.add(self.param_handl_radio_indices_first)
+        param_group_indices.add(self.param_handl_radio_indices_all)
+        param_group_indices.add(self.param_handl_radio_indices_custom)
+
+        param_indices_radio_pane = JPanel(FlowLayout(FlowLayout.LEADING))
+        param_indices_radio_pane.add(self.param_handl_radio_indices_first)
+        param_indices_radio_pane.add(self.param_handl_radio_indices_all)
+        param_indices_radio_pane.add(self.param_handl_radio_indices_custom)
+
         static_param_card = JPanel(GridBagLayout())
         cached_param_card = JPanel(GridBagLayout())
         derive_param_single_card = JPanel(GridBagLayout())
@@ -1006,19 +1056,23 @@ class ConfigTab(SubTab):
         constraints.gridy = 2
         param_derivation_pane.add(self.param_handl_radio_insert, constraints)
         constraints.gridx = 1
+        constraints.gridy = 1
         param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_RANGE), constraints)
+        constraints.gridy = 2
+        param_derivation_pane.add(param_indices_radio_pane, constraints)
         constraints.gridy = 3
         constraints.gridx = 0
         param_derivation_pane.add(self.param_handl_radio_replace, constraints)
         constraints.gridx = 1
         param_derivation_pane.add(self.param_handl_txtfield_match_indices, constraints)
-        constraints.gridx = 2
-        param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 3
+        param_derivation_pane.add(self.create_blank_space(), constraints)
+        constraints.gridx = 4
         param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 0
         constraints.gridy = 4
         param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_EXP), constraints)
+        constraints.gridx = 0
         constraints.gridy = 5
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_exp_pane_target, constraints)
@@ -1113,6 +1167,14 @@ class ConfigTab(SubTab):
             self.flip_msg_mod_controls(False)
         if c == self.msg_mod_radio_exp.getText():
             self.flip_msg_mod_controls(True)
+        if c == self.param_handl_radio_indices_first.getText():
+            self.param_handl_txtfield_match_indices.setEnabled(False)
+            self.param_handl_txtfield_match_indices.setText('0')
+        if c == self.param_handl_radio_indices_all.getText():
+            self.param_handl_txtfield_match_indices.setEnabled(False)
+            self.param_handl_txtfield_match_indices.setText('0:-1,-1')
+        if c == self.param_handl_radio_indices_custom.getText():
+            self.param_handl_txtfield_match_indices.setEnabled(True)
         if c == self.PARAM_HANDL_RADIO_STATIC_LBL:
             self.show_card(self.param_handl_cardpanel_static_or_extract, self.PARAM_HANDL_RADIO_STATIC_LBL)
         if c == self.PARAM_HANDL_RADIO_EXTRACT_CACHED_LBL:
