@@ -357,8 +357,14 @@ class OptionsTab(SubTab, ChangeListener):
                                      tab_name + self.configname_modify_exp_regex) == 'True')
         tab.param_handl_radio_insert.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_insert) == 'True')
+        if tab.param_handl_radio_insert.isSelected():
+            tab.param_handl_txtfield_static_value_label.setText(tab.PARAM_HANDL_LBL_STATIC_VALUE.format(tab.PARAM_HANDL_LBL_STATIC_VALUE_INSERT))
+            tab.param_handl_exp_pane_target_label.setText(tab.PARAM_HANDL_LBL_MATCH_EXP.format(tab.PARAM_HANDL_LBL_MATCH_EXP_INSERT))
         tab.param_handl_radio_replace.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_replace) == 'True')
+        if tab.param_handl_radio_replace.isSelected():
+            tab.param_handl_txtfield_static_value_label.setText(tab.PARAM_HANDL_LBL_STATIC_VALUE.format(tab.PARAM_HANDL_LBL_STATIC_VALUE_REPLACE))
+            tab.param_handl_exp_pane_target_label.setText(tab.PARAM_HANDL_LBL_MATCH_EXP.format(tab.PARAM_HANDL_LBL_MATCH_EXP_REPLACE))
         tab.param_handl_radio_indices_first.setSelected(
             self._cph.callbacks.loadExtensionSetting(tab_name + self.configname_indices_first) == 'True')
         if tab.param_handl_radio_indices_first.isSelected():
@@ -447,8 +453,14 @@ class OptionsTab(SubTab, ChangeListener):
                                  config[tab_name + self.configname_modify_exp_regex])
         tab.param_handl_radio_insert.setSelected(
             config[tab_name + self.configname_insert])
+        if tab.param_handl_radio_insert.isSelected():
+            tab.param_handl_txtfield_static_value_label.setText(tab.PARAM_HANDL_LBL_STATIC_VALUE.format(tab.PARAM_HANDL_LBL_STATIC_VALUE_INSERT))
+            tab.param_handl_exp_pane_target_label.setText(tab.PARAM_HANDL_LBL_MATCH_EXP.format(tab.PARAM_HANDL_LBL_MATCH_EXP_INSERT))
         tab.param_handl_radio_replace.setSelected(
             config[tab_name + self.configname_replace])
+        if tab.param_handl_radio_replace.isSelected():
+            tab.param_handl_txtfield_static_value_label.setText(tab.PARAM_HANDL_LBL_STATIC_VALUE.format(tab.PARAM_HANDL_LBL_STATIC_VALUE_REPLACE))
+            tab.param_handl_exp_pane_target_label.setText(tab.PARAM_HANDL_LBL_MATCH_EXP.format(tab.PARAM_HANDL_LBL_MATCH_EXP_REPLACE))
         tab.param_handl_radio_indices_first.setSelected(
             config[tab_name + self.configname_indices_first])
         if tab.param_handl_radio_indices_first.isSelected():
@@ -775,12 +787,16 @@ class ConfigTab(SubTab):
     PARAM_HANDL_BTN_ISSUE_LBL = 'Issue'
     PARAM_HANDL_GROUP_LBL = 'Parameter handling'
     PARAM_HANDL_LBL_EXTRACT_VALUE = 'this request (left) to extract the parameter value from its response (right):'
-    PARAM_HANDL_LBL_MATCH_EXP = 'Determine where to insert/replace the parameter using this expression:'
+    PARAM_HANDL_LBL_MATCH_EXP_INSERT = 'insert'
+    PARAM_HANDL_LBL_MATCH_EXP_REPLACE = 'replace'
+    PARAM_HANDL_LBL_MATCH_EXP = 'Determine where to {} the parameter using this expression:'
     PARAM_HANDL_LBL_MATCH_RANGE = 'Match indices and/or slices:'
     PARAM_HANDL_RADIO_INDICES_FIRST_LBL = 'First '
     PARAM_HANDL_RADIO_INDICES_ALL_LBL = 'All '
     PARAM_HANDL_RADIO_INDICES_CUSTOM_LBL = 'Custom '
-    PARAM_HANDL_LBL_STATIC_VALUE = 'Insert or replace existing value with this one in applicable requests (newlines are treated as "\\r\\n"):'
+    PARAM_HANDL_LBL_STATIC_VALUE_INSERT = 'Insert'
+    PARAM_HANDL_LBL_STATIC_VALUE_REPLACE = 'Replace'
+    PARAM_HANDL_LBL_STATIC_VALUE = '{} existing value with this one in applicable requests (newlines are treated as "\\r\\n"):'
     PARAM_HANDL_RADIO_EXTRACT_SINGLE_LBL = 'Extract value from a response after issuing a single request...'
     PARAM_HANDL_RADIO_EXTRACT_MACRO_LBL = 'Extract value from the final response after running a macro...'
     PARAM_HANDL_RADIO_CACHED_EXP_LBL = '... using this Regular Expression:'
@@ -869,10 +885,12 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_match_indices = JTextField()
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
+        self.param_handl_exp_pane_target_label = JLabel(self.PARAM_HANDL_LBL_MATCH_EXP.format(self.PARAM_HANDL_LBL_MATCH_EXP_INSERT))
         self.param_handl_exp_pane_target = self.create_expression_pane()
         self.param_handl_exp_pane_extract_cached = self.create_expression_pane()
         self.param_handl_exp_pane_extract_single = self.create_expression_pane()
         self.param_handl_exp_pane_extract_macro = self.create_expression_pane()
+        self.param_handl_txtfield_static_value_label = JLabel(self.PARAM_HANDL_LBL_STATIC_VALUE.format(self.PARAM_HANDL_LBL_STATIC_VALUE_INSERT))
         self.param_handl_txtfield_static_value = JTextArea()
         self.param_handl_txtfield_static_value.setColumns(self.TXT_FIELD_SIZE)
         self.param_handl_cached_req_viewer = self._cph.callbacks.createMessageEditor(None, True)
@@ -988,7 +1006,7 @@ class ConfigTab(SubTab):
 
         constraints = self.initialize_constraints()
         constraints.anchor = GridBagConstraints.FIRST_LINE_START
-        static_param_card.add(JLabel(self.PARAM_HANDL_LBL_STATIC_VALUE), constraints)
+        static_param_card.add(self.param_handl_txtfield_static_value_label, constraints)
         constraints.gridy = 1
         static_param_card.add(self.param_handl_txtfield_static_value, constraints)
 
@@ -1057,35 +1075,27 @@ class ConfigTab(SubTab):
         constraints.gridx = 0
         constraints.gridy = 2
         param_derivation_pane.add(self.param_handl_radio_insert, constraints)
-        constraints.gridx = 1
-        constraints.gridy = 3
-        param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_RANGE), constraints)
-        constraints.gridx = 1
-        constraints.gridy = 4
-        param_derivation_pane.add(param_indices_radio_pane, constraints)
         constraints.gridx = 0
         constraints.gridy = 3
         param_derivation_pane.add(self.param_handl_radio_replace, constraints)
         constraints.gridx = 1
-        constraints.gridy = 5
-        constraints.gridwidth = GridBagConstraints.REMAINDER - 1
-        param_derivation_pane.add(self.param_handl_txtfield_match_indices, constraints)
-        constraints.gridx = 2
         constraints.gridy = 3
-        param_derivation_pane.add(self.create_blank_space(), constraints)
-        constraints.gridx = 3
-        constraints.gridy = 5
-        param_derivation_pane.add(self.create_blank_space(), constraints)
-        constraints.gridx = 4
-        constraints.gridy = 5
-        param_derivation_pane.add(self.create_blank_space(), constraints)
+        param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_RANGE), constraints)
         constraints.gridx = 0
         constraints.gridy = 4
-        param_derivation_pane.add(JLabel(self.PARAM_HANDL_LBL_MATCH_EXP), constraints)
+        param_derivation_pane.add(self.param_handl_exp_pane_target_label, constraints)
+        constraints.gridx = 1
+        constraints.gridy = 4
+        param_derivation_pane.add(param_indices_radio_pane, constraints)
         constraints.gridx = 0
         constraints.gridy = 5
-        constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_exp_pane_target, constraints)
+        constraints.gridx = 1
+        constraints.gridy = 5
+        param_derivation_pane.add(self.param_handl_txtfield_match_indices, constraints)
+        constraints.gridx = 2
+        constraints.gridy = 5
+        param_derivation_pane.add(self.create_blank_space(), constraints)
         constraints.gridx = 0
         constraints.gridy = 6
         constraints.gridwidth = GridBagConstraints.REMAINDER
@@ -1195,6 +1205,12 @@ class ConfigTab(SubTab):
             self.param_handl_txtfield_match_indices.setText('0:-1,-1')
         if c == self.param_handl_radio_indices_custom.getText():
             self.param_handl_txtfield_match_indices.setEnabled(True)
+        if c == self.param_handl_radio_insert.getText():
+            self.param_handl_txtfield_static_value_label.setText(self.PARAM_HANDL_LBL_STATIC_VALUE.format(self.PARAM_HANDL_LBL_STATIC_VALUE_INSERT))
+            self.param_handl_exp_pane_target_label.setText(self.PARAM_HANDL_LBL_MATCH_EXP.format(self.PARAM_HANDL_LBL_MATCH_EXP_INSERT))
+        if c == self.param_handl_radio_replace.getText():
+            self.param_handl_txtfield_static_value_label.setText(self.PARAM_HANDL_LBL_STATIC_VALUE.format(self.PARAM_HANDL_LBL_STATIC_VALUE_REPLACE))
+            self.param_handl_exp_pane_target_label.setText(self.PARAM_HANDL_LBL_MATCH_EXP.format(self.PARAM_HANDL_LBL_MATCH_EXP_REPLACE))
         if c == self.PARAM_HANDL_RADIO_STATIC_LBL:
             self.show_card(self.param_handl_cardpanel_static_or_extract, self.PARAM_HANDL_RADIO_STATIC_LBL)
         if c == self.PARAM_HANDL_RADIO_EXTRACT_CACHED_LBL:
