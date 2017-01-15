@@ -1,0 +1,28 @@
+<p>CPH provides a simple way to modify ANY part of an HTTP message, thus
+allowing manipulation of these parts with surgical precision even (and
+especially) when using macros. Typically, macros only support HTTP parameters
+(name=value), but with this extension anything can be targeted as if it were a
+parameter!</p>
+
+
+<ul>
+  Features include:
+  <li>Automatic modification of Requests, Responses, or Both based on scope and pattern matching</li>
+  <li>Find and Replace or Find and Insert of values, with support for RegEx</li>
+  <li>Burp Suite Tools Scoping, only modify traffic from specific areas of Burp</li>
+  <li>Matching specific indices and/or slices</li>
+  <li>Chaining and Ordering of modifications, and the ability to base next-in-line modifications off previous tab responses</li>
+  <li>
+    <ul>
+      Save/Load Config:
+      <li>Quicksave/Quickload (persists between Burp/Extender sessions)</li>
+      <li>Import/Export from and to file</li>
+    </ul>
+  </li>
+  <li>Extracting replace values from final macro responses</li>
+  <li>Caching messages for full macro modification</li>
+</ul>
+
+<p>More information and bug reporting on <a href="https://github.com/elespike/burp-cph">github.com/elespike.burp-cph</a></p>
+
+<p>Requires Jython version 2.7.0</p>
