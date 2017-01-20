@@ -6,6 +6,6 @@ SerialVersion: 0
 MinPlatformVersion: 0
 ProOnly: False
 Author: @elespike, @eth0up
-ShortDescription: CPH provides a simple way to modify ANY part of an HTTP message
+ShortDescription: Provides a simple way to automatically modify any part of an HTTP message.
 EntryPoint: CustomParamHandler_merged.py
 BuildCommand: python utils/CPH_Merger.py
