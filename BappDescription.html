@@ -1,0 +1,26 @@
+<p>This extension provides a simple way to modify any part of an HTTP message,
+allowing manipulation with surgical precision even (and especially) when using 
+macros. Typically, macros only support HTTP parameters (name=value), but with 
+this extension anything can be targeted as if it were a parameter.</p>
+<p>Features include:</p>
+
+<ul>
+  <li>Automatic modification of requests, responses, or both, based on scope and pattern matching.</li>
+  <li>Find and replace or find and insert, with support for regular expressions.</li>
+  <li>Scoping to specific Burp Suite tools.</li>
+  <li>Matching specific indices and/or slices.</li>
+  <li>Chaining and ordering of modifications, and the ability to base next-in-line modifications off previous tab responses.</li>
+  <li>
+      Save/load Config:
+  </li>
+    <ul>
+      <li>Quicksave/quickload (persists between Burp/Extender sessions).</li>
+      <li>Import/export from and to file.</li>
+    </ul>
+  <li>Extracting replace values from final macro responses.</li>
+  <li>Caching messages for full macro modification.</li>
+</ul>
+
+<p>More information and bug reporting at: <a href="https://github.com/elespike/burp-cph">github.com/elespike.burp-cph</a>.</p>
+
+<p>Requires Jython version 2.7.0</p>
