@@ -2,13 +2,34 @@
 #  Begin CPH_Config.py Imports
 ########################################################################################################################
 
-from pickle import dump, load
-from thread import start_new_thread
-from logging import DEBUG, ERROR, INFO, WARNING, getLevelName
+from logging import (
+    DEBUG,
+    ERROR,
+    INFO,
+    WARNING,
+    getLevelName,
+)
+from pickle     import dump, load
+from thread     import start_new_thread
 from webbrowser import open_new_tab as browser_open
 
-from Quickstart import Quickstart
 from burp import ITab
+from Quickstart import Quickstart
+
+from java.awt import (
+    CardLayout,
+    Color,
+    FlowLayout,
+    Font,
+    GridBagConstraints,
+    GridBagLayout,
+    Insets,
+)
+from java.awt.event import (
+    ActionListener,
+    KeyListener,
+    MouseAdapter,
+)
 from javax.swing import (
     BorderFactory,
     ButtonGroup,
@@ -24,22 +45,11 @@ from javax.swing import (
     JSpinner,
     JSplitPane,
     JTabbedPane,
-    JTextField,
     JTextArea,
-    SpinnerNumberModel)
+    JTextField,
+    SpinnerNumberModel,
+)
 from javax.swing.event import ChangeListener
-from java.awt.event import (
-    ActionListener,
-    KeyListener,
-    MouseAdapter)
-from java.awt import (
-    CardLayout,
-    Color,
-    FlowLayout,
-    GridBagConstraints,
-    GridBagLayout,
-    Insets,
-    Font)
 
 ########################################################################################################################
 #  End CPH_Config.py Imports
@@ -323,7 +333,7 @@ class OptionsTab(SubTab, ChangeListener):
     def stateChanged(self, e):
         if e.getSource() == self.verbosity_spinner:
             level = self.verbosity_translator[self.verbosity_spinner.getValue()]
-            self._cph.set_logging_level(level)
+            self._cph.logger.setLevel(level)
             self.verbosity_level_lbl.setText(getLevelName(level))
 
     @staticmethod
@@ -537,17 +547,17 @@ class OptionsTab(SubTab, ChangeListener):
                                                       'Cancel')
             if result == 0:  # Replace
                 replace_config_tabs = True
-                self._cph.issue_log_message('Replacing configuration...', INFO)
+                self._cph.logger.info('Replacing configuration...')
             if result != 2 and result != -1:  # Cancel or close dialog
                 if result != 0:
-                    self._cph.issue_log_message('Merging configuration...', INFO)
+                    self._cph.logger.info('Merging configuration...')
                 if c == self.BTN_QUICKLOAD_LBL:
                     try:
                         self.tab_names = self._cph.callbacks.loadExtensionSetting(self.configname_tab_names).split(',')
                         self.load_config(replace_config_tabs)
-                        self._cph.issue_log_message('Configuration quickloaded.', INFO)
+                        self._cph.logger.info('Configuration quickloaded.')
                     except StandardError:
-                        self._cph.issue_log_message('Error during quickload.', ERROR, True)
+                        self._cph.logger.error('Error during quickload.')
                 if c == self.BTN_IMPORTCONFIG_LBL:
                     fc = JFileChooser()
                     result = fc.showOpenDialog(self)
@@ -558,13 +568,13 @@ class OptionsTab(SubTab, ChangeListener):
                                 self.tab_names = load(f).split(',')
                                 config = load(f)
                             self.load_config(replace_config_tabs, config)
-                            self._cph.issue_log_message('Configuration imported from "{}".'.format(fpath), INFO)
+                            self._cph.logger.info('Configuration imported from "{}".'.format(fpath))
                         except StandardError:
-                            self._cph.issue_log_message('Error importing config from "{}".'.format(fpath), ERROR, True)
+                            self._cph.logger.exception('Error importing config from "{}".'.format(fpath))
                     if result == JFileChooser.CANCEL_OPTION:
-                        self._cph.issue_log_message('User canceled configuration import from file.', INFO)
+                        self._cph.logger.info('User canceled configuration import from file.')
             else:
-                self._cph.issue_log_message('User canceled quickload/import.', INFO)
+                self._cph.logger.info('User canceled quickload/import.')
 
         if c == self.BTN_QUICKSAVE_LBL:
             tabcount = 0
@@ -577,9 +587,9 @@ class OptionsTab(SubTab, ChangeListener):
                     self._cph.callbacks.saveExtensionSetting(self.configname_tab_names, ','.join(self.tab_names))
                     for k, v in config.items():
                         self._cph.callbacks.saveExtensionSetting(k, str(v))
-                    self._cph.issue_log_message('Configuration quicksaved.', INFO)
+                    self._cph.logger.info('Configuration quicksaved.')
                 except StandardError:
-                    self._cph.issue_log_message('Error during quicksave.', ERROR, True)
+                    self._cph.logger.exception('Error during quicksave.')
 
         if c == self.BTN_DOCS_LBL:
             browser_open(self.DOCS_URL)
@@ -599,11 +609,11 @@ class OptionsTab(SubTab, ChangeListener):
                         with open(fpath, 'wb') as f:
                             dump(','.join(self.tab_names), f)
                             dump(config, f)
-                        self._cph.issue_log_message('Configuration exported to "{}".'.format(fpath), INFO)
+                        self._cph.logger.info('Configuration exported to "{}".'.format(fpath))
                     except IOError:
-                        self._cph.issue_log_message('Error exporting config to "{}".'.format(fpath), ERROR, True)
+                        self._cph.logger.exception('Error exporting config to "{}".'.format(fpath))
                 if result == JFileChooser.CANCEL_OPTION:
-                    self._cph.issue_log_message('User canceled configuration export to file.', INFO)
+                    self._cph.logger.info('User canceled configuration export to file.')
 
     def load_config(self, replace_config_tabs, config=None):
         temp_names = self.tab_names[:]

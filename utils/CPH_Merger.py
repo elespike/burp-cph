@@ -1,5 +1,5 @@
-cph_main = open('CustomParamHandler.py', 'r')
-cph_config = open('CPH_Config.py', 'r')
+cph_main = open('../CustomParamHandler.py', 'r')
+cph_config = open('../CPH_Config.py', 'r')
 
 
 def write_cph_imports():
@@ -30,10 +30,10 @@ def write_config_imports():
         line = cph_config.readline()
 
 
-with open('CustomParamHandler_merged.py', 'w') as merged_file:
+with open('../CustomParamHandler_merged.py', 'w') as merged_file:
     write_cph_imports()
     write_config_imports()
-    with open('Quickstart.py', 'r') as quickstart:
+    with open('../Quickstart.py', 'r') as quickstart:
         merged_file.write(quickstart.read())
     for line in cph_config.readlines():
         merged_file.write(line)
