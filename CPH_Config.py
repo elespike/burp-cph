@@ -243,10 +243,11 @@ class OptionsTab(SubTab, ChangeListener):
 
         err, warn, info, dbg = 1, 2, 3, 4
         self.verbosity_translator = {
-            err: ERROR,
+            err : ERROR  ,
             warn: WARNING,
-            info: INFO,
-            dbg: DEBUG}
+            info: INFO   ,
+            dbg : DEBUG  ,
+        }
         self.verbosity_level_lbl = JLabel(getLevelName(INFO))
         self.verbosity_spinner = JSpinner(SpinnerNumberModel(info, err, dbg, 1))
         self.verbosity_spinner.addChangeListener(self)

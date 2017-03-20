@@ -3,12 +3,9 @@
 ########################################################################################################################
 
 from logging import (
-    DEBUG        ,
-    ERROR        ,
     Formatter    ,
     INFO         ,
     StreamHandler,
-    WARNING      ,
     getLogger    ,
 )
 from re import (
