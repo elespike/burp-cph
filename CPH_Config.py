@@ -32,7 +32,6 @@ from java.awt.event import (
 )
 from javax.swing import (
     BorderFactory,
-    ButtonGroup,
     JButton,
     JCheckBox,
     JComboBox,
@@ -40,7 +39,6 @@ from javax.swing import (
     JLabel,
     JOptionPane,
     JPanel,
-    JRadioButton,
     JScrollPane,
     JSeparator,
     JSpinner,
@@ -169,16 +167,31 @@ class SubTab(JScrollPane, ActionListener):
     @staticmethod
     def get_exp_pane_values(pane):
         """
-        Expression panes are JPanels that have been uniformly created with 2 components:
-        Component 0 is a text field
-        Component 1 is a checkbox
+        See create_expression_pane() for details
         """
-        return pane.getComponent(0).getText(), pane.getComponent(1).isSelected()
+        comp_count = pane.getComponentCount()
+        if comp_count == 1:
+            # then there's no label and child_pane is the only component
+            child_pane = pane.getComponent(0)
+        elif comp_count == 2:
+            # then there is a label and child_pane is the second component
+            child_pane = pane.getComponent(1)
+        return child_pane.getComponent(0).getText(), child_pane.getComponent(1).isSelected()
 
     @staticmethod
     def set_exp_pane_values(pane, text, check):
-        pane.getComponent(0).setText(text)
-        pane.getComponent(1).setSelected(check)
+        """
+        See create_expression_pane() for details
+        """
+        comp_count = pane.getComponentCount()
+        if comp_count == 1:
+            # then there's no label and child_pane is the only component
+            child_pane = pane.getComponent(0)
+        elif comp_count == 2:
+            # then there is a label and child_pane is the second component
+            child_pane = pane.getComponent(1)
+        child_pane.getComponent(0).setText(text)
+        child_pane.getComponent(1).setSelected(check)
 
     @staticmethod
     def show_card(cardpanel, label):
@@ -780,17 +793,17 @@ class ConfigTab(SubTab):
     # TODO organize this
     HTTPS_LBL = 'Issue over HTTPS'
     UPDATE_COOKIES_LBL = 'Update cookies'
-    INSERT_REPLACE_LBL = '3) {}the following:'
+    INSERT_REPLACE_LBL = '{}the following:'
     PARAM_HANDL_BTN_ISSUE_LBL = 'Issue'
     PARAM_HANDL_GROUP_LBL = 'Parameter handling'
     PARAM_HANDL_LBL_EXTRACT_SINGLE = 'the request in the left pane, then extract the value from its response with this expression:'
     PARAM_HANDL_LBL_EXTRACT_MACRO = 'When invoked from a Session Handling Rule, CPH will extract the value from the final macro response with this expression:'
     PARAM_HANDL_LBL_EXTRACT_CACHED_PRE = 'Extract the value from'
     PARAM_HANDL_LBL_EXTRACT_CACHED_POST = '\'s cached response with this expression:'
-    PARAM_HANDL_LBL_MATCH_EXP = '1) Find this expression'
-    PARAM_HANDL_LBL_ACTION = '2) then'
+    PARAM_HANDL_LBL_MATCH_EXP = 'Find this expression -'
+    PARAM_HANDL_LBL_ACTION = 'then,'
     PARAM_HANDL_LBL_MATCH_RANGE = 'of the matches'
-    PARAM_HANDL_LBL_MATCH_SUBSET = 'Which subset?'
+    PARAM_HANDL_LBL_MATCH_SUBSET = '- which subset?'
     PARAM_HANDL_COMBO_INDICES_FIRST  = 'the first'
     PARAM_HANDL_COMBO_INDICES_EACH   = 'each'
     PARAM_HANDL_COMBO_INDICES_SUBSET = 'a subset'
@@ -799,10 +812,10 @@ class ConfigTab(SubTab):
         PARAM_HANDL_COMBO_INDICES_EACH  ,
         PARAM_HANDL_COMBO_INDICES_SUBSET,
     ]
-    PARAM_HANDL_COMBO_EXTRACT_STATIC = 'A static value specified below'
-    PARAM_HANDL_COMBO_EXTRACT_SINGLE = 'A value returned by issuing a single request'
-    PARAM_HANDL_COMBO_EXTRACT_MACRO  = 'A value returned by issuing a sequence of requests'
-    PARAM_HANDL_COMBO_EXTRACT_CACHED = 'A value in the cached response of a previous CPH tab'
+    PARAM_HANDL_COMBO_EXTRACT_STATIC = 'a static value specified below'
+    PARAM_HANDL_COMBO_EXTRACT_SINGLE = 'a value returned by issuing a single request'
+    PARAM_HANDL_COMBO_EXTRACT_MACRO  = 'a value returned by issuing a sequence of requests'
+    PARAM_HANDL_COMBO_EXTRACT_CACHED = 'a value in the cached response of a previous CPH tab'
     PARAM_HANDL_COMBO_EXTRACT_CHOICES = [
         PARAM_HANDL_COMBO_EXTRACT_STATIC,
         PARAM_HANDL_COMBO_EXTRACT_SINGLE,
@@ -810,17 +823,17 @@ class ConfigTab(SubTab):
         PARAM_HANDL_COMBO_EXTRACT_CACHED,
     ]
     PARAM_HANDL_LBL_EXTRACT_STATIC = 'Please note: line separators in this multiline field will be converted to 0x0d0a in the resulting HTTP request'
-    PARAM_HANDL_COMBO_ACTION_INSERT = 'Insert after'
-    PARAM_HANDL_COMBO_ACTION_REPLACE = 'Replace'
+    PARAM_HANDL_COMBO_ACTION_INSERT = 'insert after'
+    PARAM_HANDL_COMBO_ACTION_REPLACE = 'replace'
     PARAM_HANDL_COMBO_ACTION_CHOICES = [PARAM_HANDL_COMBO_ACTION_INSERT, PARAM_HANDL_COMBO_ACTION_REPLACE]
     PARAM_HANDL_RADIO_STATIC_LBL = 'Use static value'
     REGEX_LBL = 'RegEx'
 
     MSG_MOD_GROUP_LBL = 'Scoping'
     MSG_MOD_TYPES_TO_MODIFY_LBL = 'this tab will work'
-    MSG_MOD_COMBO_TYPE_REQ  = 'Requests'
-    MSG_MOD_COMBO_TYPE_RESP = 'Responses'
-    MSG_MOD_COMBO_TYPE_BOTH = 'Requests and Responses'
+    MSG_MOD_COMBO_TYPE_REQ  = 'requests'
+    MSG_MOD_COMBO_TYPE_RESP = 'responses'
+    MSG_MOD_COMBO_TYPE_BOTH = 'requests and responses'
     MSG_MOD_COMBO_TYPE_CHOICES = [
         MSG_MOD_COMBO_TYPE_REQ,
         MSG_MOD_COMBO_TYPE_RESP,
@@ -877,7 +890,9 @@ class ConfigTab(SubTab):
         namepane.add(self.namepane_txtfield)
 
         # TODO organize this
-        self.msg_mod_exp_pane_scope = self.create_expression_pane(label=self.MSG_MOD_LBL_SCOPE_SOME)
+        self.msg_mod_exp_pane_scope_lbl = JLabel(self.MSG_MOD_LBL_SCOPE_SOME)
+        self.msg_mod_exp_pane_scope_lbl.setVisible(False)
+        self.msg_mod_exp_pane_scope = self.create_expression_pane()
         self.msg_mod_exp_pane_scope.setVisible(False)
         # self.msg_mod_controls_to_toggle = self.msg_mod_exp_pane_scope.getComponents()
         msg_mod_layout_pane = JPanel(GridBagLayout())
@@ -997,6 +1012,7 @@ class ConfigTab(SubTab):
         msg_mod_req_or_resp_pane.add(JLabel(self.MSG_MOD_TYPES_TO_MODIFY_LBL))
         msg_mod_req_or_resp_pane.add(self.msg_mod_combo_scope)
         msg_mod_req_or_resp_pane.add(self.msg_mod_combo_type)
+        msg_mod_req_or_resp_pane.add(self.msg_mod_exp_pane_scope_lbl)
 
         constraints = self.initialize_constraints()
         msg_mod_pane.add(self.set_title_font(JLabel(self.MSG_MOD_LBL_SCOPE_BURP)), constraints)
@@ -1149,8 +1165,10 @@ class ConfigTab(SubTab):
 
         if c in self.MSG_MOD_COMBO_SCOPE_CHOICES:
             if c == self.MSG_MOD_COMBO_SCOPE_ALL:
+                self.msg_mod_exp_pane_scope_lbl.setVisible(False)
                 self.msg_mod_exp_pane_scope.setVisible(False)
             if c == self.MSG_MOD_COMBO_SCOPE_SOME:
+                self.msg_mod_exp_pane_scope_lbl.setVisible(True)
                 self.msg_mod_exp_pane_scope.setVisible(True)
 
         if c in self.PARAM_HANDL_COMBO_ACTION_CHOICES:
