@@ -5,12 +5,85 @@
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <title>CPH Docs</title>
     <base href="">
-    <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript" src="bootstrap.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="bootstrap.min.css" />
-    <link rel="stylesheet" type="text/css" href="home.css" />
+    <!--<link rel="icon" href="/static/home/favicon.ico"/>-->
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="style/home.css" />
 </head>
 <body>
-Coming soon...
+<!-- Sidebar based on http://startbootstrap.com/template-overviews/simple-sidebar/ -->
+<div id="wrapper">
+    <div id="sidebar-wrapper">
+        <ul class="sidebar-nav list-unstyled">
+            <li class="sidebar-brand">
+                <!--<a href="/">-->
+                    <!--<img class="logo center-block" src="/static/home/mznlab.gif" />-->
+                <!--</a>-->
+            </li>
+            <li class="node" data-toggle="collapse" data-target="#Updates">Updates</li>
+            <div id="Updates" class="collapse in">
+                <li><a href="/updates/security-lab-vm-update">Updates to Security La...</a></li>
+                <li><a href="/updates/new_project_poly_rolly">New project: Poly Rolly!</a></li>
+                <li><a href="/updates/new-theme-gif">New theme, new gif!</a></li>
+                <li><a href="/updates/new_project_cph">New project: Custom Pa...</a></li>
+                <li><a href="/updates/update_project_wb_2015-12-13">Minor update to Wieldi...</a></li>
+            </div>
+            <li class="node" data-toggle="collapse" data-target="#Released">Released Projects</li>
+            <div id="Released" class="collapse in">
+                <li><a href="/projects/poly-rolly">Poly Rolly</a></li>
+                <li><a href="/projects/burp-cph">Custom Parameter Handler</a></li>
+                <li><a href="/projects/givesec-org">GiveSec.org</a></li>
+                <li><a href="/projects/wielding_burp">Wielding Burp Suite</a></li>
+                <li><a href="/projects/gns3_for_infosec">GNS3 for InfoSec</a></li>
+                <li><a href="/projects/info-insec">Information (in)Security</a></li>
+            </div>
+        </ul>
+    </div>
+    <button id="menu-toggle" class="btn btn-lg" href="#menu-toggle">
+        <span class="glyphicon glyphicon-menu-hamburger"></span>
+    </button>
+    <script type="text/javascript">
+    $(document).ready(function() {
+        $('.collapse').on('hidden.bs.collapse', function() {
+            if (this.id)
+            { localStorage.setItem(this.id, '1'); }
+        }).on('shown.bs.collapse', function() {
+            if (this.id)
+            { localStorage.removeItem(this.id); }
+        }).each(function() {
+            if (this.id && localStorage.getItem(this.id) === '1' )
+            { $(this).collapse('hide'); }
+        });
+    });
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+    </script>
+    <div id="page-content-wrapper">
+        <div class="heading container-fluid">
+            <h1>Welcome to the Custom Parameter Handler Docs!<br/>
+                <small class="desc">
+                    a Burp Suite extension by <a href="https://twitter.com/elespike">@elespike</a> and <a href="https://twitter.com/eth0up">@eth0up</a><br/>
+                </small>
+            </h1>
+        </div>
+        <div class="container-fluid" style="height:70px"></div>
+        <div class="heading container-fluid">
+            <h2>
+                Latest project release: Poly Rolly<br/>
+                <small class="desc">fully-featured dice roller backed by CSPRNG and even true randomness!</small>
+            </h2>
+            <div class="desc container-fluid">
+                Beginning with an eagerness to learn more about tkinter and lambda expressions, this little project grew to offer much more than expected.
+            </div>
+            <a href="/projects/poly-rolly">
+                <button class="btn btn-default" style="margin:20px">Learn More!</button>
+            </a>
+        </div>
+    </div>
+</div>
 </body>
 </html>
+
