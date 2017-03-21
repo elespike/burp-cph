@@ -74,10 +74,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
     def createMenuItems(self, invocation):
         context = invocation.getInvocationContext()
         if context == invocation.CONTEXT_MESSAGE_EDITOR_REQUEST \
-                or context == invocation.CONTEXT_MESSAGE_VIEWER_REQUEST \
-                or context == invocation.CONTEXT_PROXY_HISTORY \
-                or context == invocation.CONTEXT_TARGET_SITE_MAP_TABLE \
-                or context == invocation.CONTEXT_SEARCH_RESULTS:
+        or context == invocation.CONTEXT_MESSAGE_VIEWER_REQUEST \
+        or context == invocation.CONTEXT_PROXY_HISTORY          \
+        or context == invocation.CONTEXT_TARGET_SITE_MAP_TABLE  \
+        or context == invocation.CONTEXT_SEARCH_RESULTS:
             self.messages_to_send = invocation.getSelectedMessages()
             if len(self.messages_to_send):
                 return [JMenuItem('Send to CPH', actionPerformed=self.send_to_cph)]
@@ -211,8 +211,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             for tab in self.maintab.get_config_tabs():
                 if req == tab.request:
                     continue
-                if tab.tabtitle_pane.enable_chkbox.isSelected() and \
-                        self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                if tab.tabtitle_pane.enable_chkbox.isSelected() \
+                and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
                     self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     req_as_string = self.modify_message(tab, req_as_string)
                     # URL-encode the first line of the request in case it was modified
@@ -255,8 +255,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             resp = messageInfo.getResponse()
             resp_as_string = self.helpers.bytesToString(resp)
             for tab in self.maintab.get_config_tabs():
-                if tab.tabtitle_pane.enable_chkbox.isSelected() and \
-                        self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
+                if tab.tabtitle_pane.enable_chkbox.isSelected() \
+                and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
                     self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     resp_as_string = self.modify_message(tab, resp_as_string)
                     resp = self.helpers.stringToBytes(resp_as_string)
@@ -298,8 +298,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         rms_type_responses = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_RESP
         rms_type_both      = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_BOTH
 
-        rms_field_modifymatch_txt, \
-        rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
+        rms_field_modifymatch_txt, rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
 
         if is_request and (rms_type_requests or rms_type_both):
             self.logger.debug('is_request and (rms_type_requests or rms_type_both): {}'.format(
@@ -327,16 +326,14 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         return False
 
     def modify_message(self, tab, msg_as_string):
-        ph_field_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
-        ph_field_matchtarget_txt, \
-        ph_checkbox_matchtarget_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_target)
+        ph_field_matchnum_txt    = tab.param_handl_txtfield_match_indices .getText()
         ph_field_staticvalue_txt = tab.param_handl_txtfield_extract_static.getText()
-        ph_field_extract_cached_txt, \
-        ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
-        ph_field_extract_single_txt, \
-        ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
-        ph_field_extract_macro_txt, \
-        ph_checkbox_extract_macro_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro)
+
+        ph_field_matchtarget_txt   , ph_checkbox_matchtarget_regex    = tab.get_exp_pane_values(tab.param_handl_exp_pane_target        )
+        ph_field_extract_cached_txt, ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
+        ph_field_extract_single_txt, ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
+        ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
+
         original_msg = msg_as_string
         match_value = ph_field_matchtarget_txt
         self.logger.debug('Initial match value: {}'.format(match_value))
@@ -471,14 +468,14 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
                 insert_at = substr_index + (len(match_value) * (modification_count + 1))
                 msg_as_string = msg_as_string[:insert_at] \
-                                + replace_value \
+                                + replace_value           \
                                 + msg_as_string[insert_at:]
                 modification_count += 1
                 self.logger.info('Match index [{}]: inserted "{}" after "{}"'.format(
                     match_index, replace_value, match_value))
             elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
                 msg_as_string = msg_as_string[:substr_index] \
-                                + replace_value \
+                                + replace_value              \
                                 + msg_as_string[substr_index + len(match_value):]
                 modification_count += 1
                 self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
