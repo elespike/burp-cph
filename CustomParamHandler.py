@@ -211,7 +211,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             for tab in self.maintab.get_config_tabs():
                 if req == tab.request:
                     continue
-                if tab.tabtitle.enable_chkbox.isSelected() and \
+                if tab.tabtitle_pane.enable_chkbox.isSelected() and \
                         self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
                     self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     req_as_string = self.modify_message(tab, req_as_string)
@@ -251,24 +251,11 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     break
             self.logger.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
-            for tab in self.maintab.get_config_tabs():
-                self.logger.debug(
-                    'set_cache is {}, working on request for tab {}'.format(set_cache, tab.namepane_txtfield.getText()))
-                if set_cache:
-                    tab.param_handl_cached_req_viewer.setMessage(req, False)
-                    self.logger.debug('Cached request viewer updated for tab {}!'.format(tab.namepane_txtfield.getText()))
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab, True):
-                    tab.cached_request = req
-                    set_cache = True
-                    self.logger.debug('Cached request set for tab {}!'.format(tab.namepane_txtfield.getText()))
-                else:
-                    set_cache = False
-
         if not messageIsRequest:
             resp = messageInfo.getResponse()
             resp_as_string = self.helpers.bytesToString(resp)
             for tab in self.maintab.get_config_tabs():
-                if tab.tabtitle.enable_chkbox.isSelected() and \
+                if tab.tabtitle_pane.enable_chkbox.isSelected() and \
                         self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
                     self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     resp_as_string = self.modify_message(tab, resp_as_string)
@@ -283,46 +270,50 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             resp = self.helpers.stringToBytes(resp_as_string)
             messageInfo.setResponse(resp)
 
-            for tab in self.maintab.get_config_tabs():
-                self.logger.debug('set_cache is {}, working on response for tab {}'.format(set_cache,
-                                                                               tab.namepane_txtfield.getText()))
-                if set_cache:
-                    tab.param_handl_cached_resp_viewer.setMessage(resp, False)
-                    if not tab.param_handl_radio_extract_cached.isEnabled():
-                        tab.param_handl_radio_extract_cached.setEnabled(True)
-                    self.logger.debug('Cached response viewer updated, radio enabled for tab {}!'.format(
-                        tab.namepane_txtfield.getText()))
-                if self.is_in_cph_scope(req_as_string, True, tab, True):
-                    tab.cached_response = resp
-                    set_cache = True
-                    self.logger.debug('Cached response set for tab {}!'.format(tab.namepane_txtfield.getText()))
-                else:
-                    set_cache = False
+            for working_tab in self.maintab.get_config_tabs():
+                selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
+                working_tab.param_handl_combo_cached.removeAllItems()
+                if self.is_in_cph_scope(req_as_string, messageIsRequest, working_tab) or self.is_in_cph_scope(resp_as_string, messageIsRequest, working_tab):
+                    working_tab.cached_request  = req
+                    working_tab.cached_response = resp
+                    self.logger.debug('Messages cached for tab {}!'.format(working_tab.namepane_txtfield.getText()))
+                for previous_tab in self.maintab.get_config_tabs():
+                    if working_tab == previous_tab:
+                        break
+                    if previous_tab.cached_request is None or previous_tab.cached_response is None:
+                        continue
+                    empty_req, empty_resp = previous_tab.initialize_req_resp()
+                    if previous_tab.cached_request == empty_req or previous_tab.cached_response == empty_resp:
+                        continue
+                    item = previous_tab.namepane_txtfield.getText()
+                    working_tab.param_handl_combo_cached.addItem(item)
+                    if item == selected_item:
+                        working_tab.param_handl_combo_cached.setSelectedItem(item)
 
-    def is_in_cph_scope(self, msg_as_string, is_request, tab, caching=False):
-        rms_radio_type_requests_selected = tab.msg_mod_radio_req.isSelected()
-        rms_radio_type_responses_selected = tab.msg_mod_radio_resp.isSelected()
-        rms_radio_type_both_selected = tab.msg_mod_radio_both.isSelected()
-        rms_radio_modifyall_selected = tab.msg_mod_radio_all.isSelected()
-        rms_radio_modifymatch_selected = tab.msg_mod_radio_exp.isSelected()
+    def is_in_cph_scope(self, msg_as_string, is_request, tab):
+        rms_scope_all  = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_ALL
+        rms_scope_some = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_SOME
+
+        rms_type_requests  = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_REQ
+        rms_type_responses = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_RESP
+        rms_type_both      = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_BOTH
+
         rms_field_modifymatch_txt, \
         rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
 
-        if not caching:
-            if is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected):
-                self.logger.debug('is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected): {}'.format(
-                    is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected)))
-            elif not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected):
-                self.logger.debug(
-                    'not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected): {}'.format(
-                        not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected)))
-            else:
-                self.logger.debug('Returning False from is_in_cph_scope')
-                return False
+        if is_request and (rms_type_requests or rms_type_both):
+            self.logger.debug('is_request and (rms_type_requests or rms_type_both): {}'.format(
+                is_request and (rms_type_requests or rms_type_both)))
+        elif not is_request and (rms_type_responses or rms_type_both):
+            self.logger.debug('not is_request and (rms_type_responses or rms_type_both): {}'.format(
+                not is_request and (rms_type_responses or rms_type_both)))
+        else:
+            self.logger.debug('Returning False from is_in_cph_scope')
+            return False
 
-        if rms_radio_modifyall_selected:
+        if rms_scope_all:
             return True
-        elif rms_radio_modifymatch_selected and rms_field_modifymatch_txt:
+        elif rms_scope_some and rms_field_modifymatch_txt:
             if rms_checkbox_modifymatch_regex:
                 regexp = compile(rms_field_modifymatch_txt)
                 if regexp.search(msg_as_string):
@@ -336,15 +327,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         return False
 
     def modify_message(self, tab, msg_as_string):
-        ph_radio_insert_selected = tab.param_handl_radio_insert.isSelected()
-        ph_radio_replace_selected = tab.param_handl_radio_replace.isSelected()
         ph_field_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
         ph_field_matchtarget_txt, \
         ph_checkbox_matchtarget_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_target)
-        ph_field_staticvalue_txt = tab.param_handl_txtfield_static_value.getText()
-        ph_radio_extract_cached_selected = tab.param_handl_radio_extract_cached.isSelected()
-        ph_radio_extract_single_selected = tab.param_handl_radio_extract_single.isSelected()
-        ph_radio_extract_macro_selected = tab.param_handl_radio_extract_macro.isSelected()
+        ph_field_staticvalue_txt = tab.param_handl_txtfield_extract_static.getText()
         ph_field_extract_cached_txt, \
         ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
         ph_field_extract_single_txt, \
@@ -384,7 +370,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         dbg_extracted_repl = 'Extracted replace value using this expression: {}'
         dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
         dbg_new_repl_val = 'Replace value is now: {}'
-        if ph_radio_extract_cached_selected:
+        if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
             try:
                 match = search(ph_field_extract_cached_txt,
                                   self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage()))
@@ -400,7 +386,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             else:
                 self.logger.debug(dbg_extract_repl_fail.format(
                     ph_field_extract_cached_txt))
-        elif ph_radio_extract_single_selected:
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
             try:
                 self.issue_request(tab)
                 match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
@@ -416,7 +402,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             else:
                 self.logger.debug(dbg_extract_repl_fail.format(
                     ph_field_extract_single_txt))
-        elif ph_radio_extract_macro_selected:
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
             try:
                 match = search(ph_field_extract_macro_txt, self.final_macro_resp)
             except re_error:
@@ -482,7 +468,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                           + 'Current tab: {}'.format(tab.namepane_txtfield.getText()))
                 continue
             substr_index += (len(replace_value) - len(match_value)) * modification_count
-            if ph_radio_insert_selected:
+            if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
                 insert_at = substr_index + (len(match_value) * (modification_count + 1))
                 msg_as_string = msg_as_string[:insert_at] \
                                 + replace_value \
@@ -490,7 +476,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 modification_count += 1
                 self.logger.info('Match index [{}]: inserted "{}" after "{}"'.format(
                     match_index, replace_value, match_value))
-            elif ph_radio_replace_selected:
+            elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
                 msg_as_string = msg_as_string[:substr_index] \
                                 + replace_value \
                                 + msg_as_string[substr_index + len(match_value):]
