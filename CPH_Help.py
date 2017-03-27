@@ -21,12 +21,12 @@ class CPH_Help:
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;New tabs are enabled by default but require a valid configuration in order to have any effect.<br>
     <br>
     <h2>Tips and notes</h2>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Leftmost tabs will be processed first; therefore, tab order may be important,<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;especially when extracting values from cached responses.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please view the full guide for explanations on utilizing cached responses.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;- Leftmost tabs will be processed first; therefore, tab order may be important,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;especially when extracting values from cached responses.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please view the full guide for explanations on utilizing cached responses.<br>
     <br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- When utilizing RegEx, using a group will constrain the match to the group's contents.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This strategy, therefore, increases match accuracy.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;- When utilizing RegEx, using a group will constrain the match to the group's contents.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This strategy, therefore, increases match accuracy.<br>
     </html>"""
 
     indices = """<html>
