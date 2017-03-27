@@ -19,7 +19,7 @@ def write_cph_imports():
 def write_config_imports():
     line = cph_config.readline()
     while line:
-        if line.strip() == 'from Quickstart import Quickstart':
+        if line.strip() == 'from CPH_Help import CPH_Help':
             line = cph_config.readline()
             continue
         merged_file.write(line)
@@ -33,12 +33,14 @@ def write_config_imports():
 with open('../CustomParamHandler_merged.py', 'w') as merged_file:
     write_cph_imports()
     write_config_imports()
-    with open('../Quickstart.py', 'r') as quickstart:
-        merged_file.write(quickstart.read())
+    with open('../CPH_Help.py', 'r') as cph_help:
+        merged_file.write(cph_help.read())
     for line in cph_config.readlines():
         merged_file.write(line)
     for line in cph_main.readlines():
         merged_file.write(line)
 
+
 cph_main.close()
 cph_config.close()
+
