@@ -273,7 +273,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             for working_tab in self.maintab.get_config_tabs():
                 selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
                 working_tab.param_handl_combo_cached.removeAllItems()
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, working_tab) or self.is_in_cph_scope(resp_as_string, messageIsRequest, working_tab):
+                if self.is_in_cph_scope(req_as_string, True, working_tab) or self.is_in_cph_scope(resp_as_string, False, working_tab):
                     working_tab.cached_request  = req
                     working_tab.cached_response = resp
                     self.logger.debug('Messages cached for tab {}!'.format(working_tab.namepane_txtfield.getText()))
@@ -300,14 +300,17 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
 
         rms_field_modifymatch_txt, rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
 
+        self.logger.debug('is_request: {}'.format(is_request))
+        self.logger.debug('rms_type_requests: {}'.format(rms_type_requests))
+        self.logger.debug('rms_type_responses: {}'.format(rms_type_responses))
+        self.logger.debug('rms_type_both: {}'.format(rms_type_both))
+
         if is_request and (rms_type_requests or rms_type_both):
-            self.logger.debug('is_request and (rms_type_requests or rms_type_both): {}'.format(
-                is_request and (rms_type_requests or rms_type_both)))
+            pass
         elif not is_request and (rms_type_responses or rms_type_both):
-            self.logger.debug('not is_request and (rms_type_responses or rms_type_both): {}'.format(
-                not is_request and (rms_type_responses or rms_type_both)))
+            pass
         else:
-            self.logger.debug('Returning False from is_in_cph_scope')
+            self.logger.debug('Preliminary scope check negative!')
             return False
 
         if rms_scope_all:

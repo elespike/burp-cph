@@ -1,3 +1,8 @@
+from os  import path, chdir
+from sys import argv
+
+
+chdir(path.dirname(path.abspath(argv[0])))
 cph_main = open('../CustomParamHandler.py', 'r')
 cph_config = open('../CPH_Config.py', 'r')
 
@@ -15,7 +20,6 @@ def write_cph_imports():
             break
         line = cph_main.readline()
 
-
 def write_config_imports():
     line = cph_config.readline()
     while line:
@@ -28,7 +32,6 @@ def write_config_imports():
             merged_file.write('\n')
             break
         line = cph_config.readline()
-
 
 with open('../CustomParamHandler_merged.py', 'w') as merged_file:
     write_cph_imports()

@@ -14,7 +14,7 @@ from json        import dump, dumps, load, loads
 from thread      import start_new_thread
 from webbrowser  import open_new_tab as browser_open
 
-from burp import ITab
+from burp     import ITab
 from CPH_Help import CPH_Help
 
 from java.awt import (
@@ -50,6 +50,7 @@ from javax.swing import (
     SpinnerNumberModel,
 )
 from javax.swing.event import ChangeListener
+from javax.swing.filechooser import FileNameExtensionFilter
 
 ########################################################################################################################
 #  End CPH_Config.py Imports
@@ -61,7 +62,6 @@ from javax.swing.event import ChangeListener
 
 class MainTab(ITab, ChangeListener):
     mainpane = JTabbedPane()
-    configtab_names = {}
 
     def __init__(self, cph):
         MainTab.mainpane.addChangeListener(self)
@@ -104,16 +104,17 @@ class MainTab(ITab, ChangeListener):
     @staticmethod
     def check_configtab_names():
         x = 0
+        configtab_names = {}
         for name in MainTab.get_config_tab_names():
-            MainTab.configtab_names[x] = name
+            configtab_names[x] = name
             x += 1
         indices_to_rename = {}
-        for tab_index_1, tab_name_1 in MainTab.configtab_names.items():
-            for tab_index_2, tab_name_2 in MainTab.configtab_names.items():
+        for tab_index_1, tab_name_1 in configtab_names.items():
+            for tab_index_2, tab_name_2 in configtab_names.items():
                 if tab_name_2 not in indices_to_rename:
                     indices_to_rename[tab_name_2] = []
                 if tab_name_1 == tab_name_2 and tab_index_1 != tab_index_2:
-                    indices_to_rename[tab_name_2].append(tab_index_2 + 1)
+                    indices_to_rename[tab_name_2].append(tab_index_2 + 1) # +1 because the first tab is the Options tab
         for k, v in indices_to_rename.items():
             indices_to_rename[k] = set(sorted(v))
         for tab_name, indices in indices_to_rename.items():
@@ -239,6 +240,8 @@ class OptionsTab(SubTab, ChangeListener):
     def __init__(self, cph):
         SubTab.__init__(self, cph)
         self.loaded_config = odict()
+
+        self.filefilter = FileNameExtensionFilter('JSON', ['json'])
 
         btn_docs = JButton(self.BTN_DOCS_LBL)
         btn_docs.addActionListener(self)
@@ -434,6 +437,7 @@ class OptionsTab(SubTab, ChangeListener):
                         self._cph.logger.exception('Error during quickload.')
                 if c == self.BTN_IMPORTCONFIG_LBL:
                     fc = JFileChooser()
+                    fc.setFileFilter(self.filefilter)
                     result = fc.showOpenDialog(self)
                     if result == JFileChooser.APPROVE_OPTION:
                         fpath = fc.getSelectedFile().getPath()
@@ -467,9 +471,12 @@ class OptionsTab(SubTab, ChangeListener):
                 break
             if tabcount > 0:
                 fc = JFileChooser()
+                fc.setFileFilter(self.filefilter)
                 result = fc.showSaveDialog(self)
                 if result == JFileChooser.APPROVE_OPTION:
                     fpath = fc.getSelectedFile().getPath()
+                    if not fpath.endswith('.json'):
+                        fpath += '.json'
                     full_config = self.prepare_to_save_all()
                     try:
                         with open(fpath, 'w') as f:
@@ -663,9 +670,9 @@ class ConfigTab(SubTab):
         PARAM_HANDL_COMBO_EXTRACT_CACHED,
     ]
     PARAM_HANDL_LBL_EXTRACT_STATIC = 'Please note: line separators in this multiline field will be converted to 0x0d0a in the resulting HTTP request'
-    PARAM_HANDL_COMBO_ACTION_INSERT = 'Append to'
     PARAM_HANDL_COMBO_ACTION_REPLACE = 'Replace'
-    PARAM_HANDL_COMBO_ACTION_CHOICES = [PARAM_HANDL_COMBO_ACTION_INSERT, PARAM_HANDL_COMBO_ACTION_REPLACE]
+    PARAM_HANDL_COMBO_ACTION_INSERT = 'Append to'
+    PARAM_HANDL_COMBO_ACTION_CHOICES = [PARAM_HANDL_COMBO_ACTION_REPLACE, PARAM_HANDL_COMBO_ACTION_INSERT]
     PARAM_HANDL_RADIO_STATIC_LBL = 'Use static value'
     REGEX_LBL = 'RegEx'
 
