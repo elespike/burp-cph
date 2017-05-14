@@ -222,6 +222,7 @@ class OptionsTab(SubTab, ChangeListener):
     configname_action_choice_index = 'action_choice_index'
     configname_indices_choice_index = 'indices_choice_index'
     configname_match_indices = 'match_indices'
+    configname_auto_encode = 'auto_encode'
     configname_match_value = 'match_value'
     configname_match_value_regex = 'match_value_regex'
     configname_extract_choice_index = 'extract_choice_index'
@@ -358,6 +359,7 @@ class OptionsTab(SubTab, ChangeListener):
         tab.namepane_txtfield.setText(tab_name)
 
     def set_tab_values(self, tab, tab_name, config):
+        # Scope pane
         self.set_tab_name(tab, tab_name)
         tab.tabtitle_pane.enable_chkbox.setSelected(
             config[self.configname_enabled])
@@ -374,6 +376,10 @@ class OptionsTab(SubTab, ChangeListener):
             config[self.configname_indices_choice_index])
         tab.param_handl_txtfield_match_indices.setText(
             config[self.configname_match_indices])
+
+        # Handling pane
+        tab.param_handl_auto_encode_chkbox.setSelected(
+            config[self.configname_auto_encode])
         self.set_exp_pane_values(tab.param_handl_exp_pane_target,
                                  config[self.configname_match_value],
                                  config[self.configname_match_value_regex])
@@ -538,31 +544,32 @@ class OptionsTab(SubTab, ChangeListener):
 
     def prepare_to_save_tab(self, tab):
         config = {}
-
         # Scope pane
         config[self.configname_enabled                  ] = tab.tabtitle_pane.enable_chkbox.isSelected()
         config[self.configname_modify_scope_choice_index] = tab.msg_mod_combo_scope.getSelectedIndex()
         config[self.configname_modify_type_choice_index ] = tab.msg_mod_combo_type.getSelectedIndex()
         config[self.configname_modify_exp               ] , \
         config[self.configname_modify_exp_regex         ] = self.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
+
         # Handling pane
-        config[self.configname_match_value              ] , \
-        config[self.configname_match_value_regex        ] = self.get_exp_pane_values(tab.param_handl_exp_pane_target)
-        config[self.configname_action_choice_index      ] = tab.param_handl_combo_action.getSelectedIndex()
-        config[self.configname_indices_choice_index     ] = tab.param_handl_combo_indices.getSelectedIndex()
-        config[self.configname_match_indices            ] = tab.param_handl_txtfield_match_indices.getText()
-        config[self.configname_extract_choice_index     ] = tab.param_handl_combo_extract.getSelectedIndex()
-        config[self.configname_static_value             ] = tab.param_handl_txtfield_extract_static.getText()
-        config[self.configname_single_value             ] , \
-        config[self.configname_single_regex             ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
-        config[self.configname_https                    ] = tab.param_handl_https_chkbox.isSelected()
-        config[self.configname_update_cookies           ] = tab.param_handl_update_cookies_chkbox.isSelected()
-        config[self.configname_single_request           ] = self._cph.helpers.bytesToString(tab.param_handl_request_editor.getMessage())
-        config[self.configname_single_response          ] = self._cph.helpers.bytesToString(tab.param_handl_response_editor.getMessage())
-        config[self.configname_macro_value              ] , \
-        config[self.configname_macro_regex              ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro)
-        config[self.configname_cached_value             ] , \
-        config[self.configname_cached_regex             ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
+        config[self.configname_auto_encode         ] = tab.param_handl_auto_encode_chkbox.isSelected()
+        config[self.configname_match_value         ] , \
+        config[self.configname_match_value_regex   ] = self.get_exp_pane_values(tab.param_handl_exp_pane_target)
+        config[self.configname_action_choice_index ] = tab.param_handl_combo_action.getSelectedIndex()
+        config[self.configname_indices_choice_index] = tab.param_handl_combo_indices.getSelectedIndex()
+        config[self.configname_match_indices       ] = tab.param_handl_txtfield_match_indices.getText()
+        config[self.configname_extract_choice_index] = tab.param_handl_combo_extract.getSelectedIndex()
+        config[self.configname_static_value        ] = tab.param_handl_txtfield_extract_static.getText()
+        config[self.configname_single_value        ] , \
+        config[self.configname_single_regex        ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
+        config[self.configname_https               ] = tab.param_handl_https_chkbox.isSelected()
+        config[self.configname_update_cookies      ] = tab.param_handl_update_cookies_chkbox.isSelected()
+        config[self.configname_single_request      ] = self._cph.helpers.bytesToString(tab.param_handl_request_editor.getMessage())
+        config[self.configname_single_response     ] = self._cph.helpers.bytesToString(tab.param_handl_response_editor.getMessage())
+        config[self.configname_macro_value         ] , \
+        config[self.configname_macro_regex         ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro)
+        config[self.configname_cached_value        ] , \
+        config[self.configname_cached_regex        ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
         return config
 
 
@@ -658,6 +665,7 @@ class ConfigTab(SubTab):
 
     # Handling pane
     PARAM_HANDL_GROUP                 = 'Parameter handling'
+    PARAM_HANDL_AUTO_ENCODE           = 'Automatically URL-encode the first line of the request, if modified'
     PARAM_HANDL_MATCH_EXP             = ' 1) Find matches to this expression:'
     PARAM_HANDL_TARGET                = '2) Target'
     PARAM_HANDL_COMBO_INDICES_FIRST   = 'the first'
@@ -750,6 +758,7 @@ class ConfigTab(SubTab):
         self.msg_mod_exp_pane_scope.setVisible(False)
 
         self.param_handl_exp_pane_target = self.create_expression_pane()
+        self.param_handl_auto_encode_chkbox = JCheckBox(self.PARAM_HANDL_AUTO_ENCODE, True)
         self.param_handl_combo_indices = JComboBox(self.PARAM_HANDL_COMBO_INDICES_CHOICES)
         self.param_handl_combo_indices.addActionListener(self)
         self.param_handl_combo_action = JComboBox(self.PARAM_HANDL_COMBO_ACTION_CHOICES)
@@ -912,22 +921,24 @@ class ConfigTab(SubTab):
         self.param_handl_cardpanel_static_or_extract.add(cached_param_card, self.PARAM_HANDL_COMBO_EXTRACT_CACHED)
 
         constraints = self.initialize_constraints()
-        param_derivation_pane.add(self.set_title_font(JLabel(self.PARAM_HANDL_MATCH_EXP)), constraints)
+        param_derivation_pane.add(self.param_handl_auto_encode_chkbox, constraints)
         constraints.gridy = 1
-        param_derivation_pane.add(self.param_handl_exp_pane_target, constraints)
+        param_derivation_pane.add(self.set_title_font(JLabel(self.PARAM_HANDL_MATCH_EXP)), constraints)
         constraints.gridy = 2
-        param_derivation_pane.add(target_pane, constraints)
+        param_derivation_pane.add(self.param_handl_exp_pane_target, constraints)
         constraints.gridy = 3
-        param_derivation_pane.add(self.param_handl_subset_pane, constraints)
+        param_derivation_pane.add(target_pane, constraints)
         constraints.gridy = 4
-        param_derivation_pane.add(action_pane, constraints)
+        param_derivation_pane.add(self.param_handl_subset_pane, constraints)
         constraints.gridy = 5
+        param_derivation_pane.add(action_pane, constraints)
+        constraints.gridy = 6
         # Making a FlowLayout panel here so the combo box doesn't stretch
         combo_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         combo_pane.add(self.param_handl_combo_extract)
         combo_pane.add(self.create_blank_space())
         param_derivation_pane.add(combo_pane, constraints)
-        constraints.gridy = 6
+        constraints.gridy = 7
         constraints.gridwidth = GridBagConstraints.REMAINDER - 1
         param_derivation_pane.add(self.param_handl_cardpanel_static_or_extract, constraints)
 

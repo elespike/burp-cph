@@ -42,8 +42,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         self.initialize_logger()
 
     def initialize_logger(self):
-        fmt='\n%(asctime)s:%(msecs)03d %(levelname)s: %(message)s'
-        datefmt='%Y-%m-%d %H:%M:%S'
+        fmt='%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
+        datefmt='%H:%M:%S'
         formatter = Formatter(fmt=fmt, datefmt=datefmt)
 
         handler = StreamHandler(stream=stdout)
@@ -214,19 +214,22 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
                     self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    req_as_string = self.modify_message(tab, req_as_string)
-                    # URL-encode the first line of the request in case it was modified
-                    first_req_line_old = req_as_string.split('\r\n')[0]
-                    self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
-                    first_req_line_old = first_req_line_old.split(' ')
-                    first_req_line_new = '{} {} {}'.format(
-                        first_req_line_old[0],
-                        ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
-                        first_req_line_old[-1])
-                    self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
-                    req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
-                    self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
-                    req = self.helpers.stringToBytes(req_as_string)
+                    modified_request = self.modify_message(tab, req_as_string)
+                    if req_as_string != modified_request:
+                        req_as_string = modified_request
+                        if tab.param_handl_auto_encode_chkbox.isSelected():
+                            # URL-encode the first line of the request, since it was modified
+                            first_req_line_old = req_as_string.split('\r\n')[0]
+                            self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
+                            first_req_line_old = first_req_line_old.split(' ')
+                            first_req_line_new = '{} {} {}'.format(
+                                first_req_line_old[0],
+                                ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
+                                first_req_line_old[-1])
+                            self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
+                            req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
+                        self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
+                        req = self.helpers.stringToBytes(req_as_string)
 
             requestinfo = self.helpers.analyzeRequest(req)
             content_length = len(req) - requestinfo.getBodyOffset()
