@@ -1,4 +1,14 @@
 ########################################################################################################################
+#  Begin CPH_Help.py Imports
+########################################################################################################################
+
+from collections import namedtuple
+
+########################################################################################################################
+#  End CPH_Help.py Imports
+########################################################################################################################
+
+########################################################################################################################
 #  Begin CPH_Help.py
 ########################################################################################################################
 
@@ -29,7 +39,11 @@ class CPH_Help:
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This strategy, therefore, increases match accuracy.<br>
     </html>"""
 
-    indices = """<html>
+    HelpPopup = namedtuple('HelpPopup', 'title, message')
+
+    indices = HelpPopup(
+        'Targeting a subset of matches',
+        """<html>
     To target a specific subset of matches,<br>
     enter comma-separated indices and/or slices, such as:<br>
     0,3,5,7 - targets the 1st, 4th, 6th and 8th matches<br>
@@ -38,6 +52,7 @@ class CPH_Help:
     -1,-2&nbsp;&nbsp; - targets the last and penultimate matches<br>
     0:-1&nbsp;&nbsp;&nbsp; - targets all but the last match
     </html>"""
+    )
 
     def __init__(self):
         pass

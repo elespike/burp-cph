@@ -14,7 +14,7 @@ from json        import dump, dumps, load, loads
 from thread      import start_new_thread
 from webbrowser  import open_new_tab as browser_open
 
-from burp     import ITab
+from burp import ITab
 from CPH_Help import CPH_Help
 
 from java.awt import (
@@ -795,7 +795,7 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_match_indices = JTextField(12)
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
-        self.param_handl_button_indices_help = self.HelpButton('Targeting a subset of matches', CPH_Help.indices)
+        self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices.title, CPH_Help.indices.message)
         self.param_handl_button_indices_help.addActionListener(self)
         self.param_handl_action_lbl = self.set_title_font(JLabel(self.PARAM_HANDL_ACTION_SUFFIX.format('')))
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
