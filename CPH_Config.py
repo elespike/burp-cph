@@ -132,7 +132,9 @@ class MainTab(ITab, ChangeListener):
 
 
 class SubTab(JScrollPane, ActionListener):
-    INSETS = Insets(2, 4, 2, 4)
+    BTN_HELP = '?'
+    DOCS_URL = 'https://github.com/elespike/burp-cph/wiki'
+    INSETS   = Insets(2, 4, 2, 4)
 
     def __init__(self, cph):
         self._cph = cph
@@ -201,9 +203,37 @@ class SubTab(JScrollPane, ActionListener):
         cl = cardpanel.getLayout()
         cl.show(cardpanel, label)
 
+    class HelpButton(JButton):
+        def __init__(self, help_title, help_message, help_link=None):
+            super(JButton, self).__init__()
+            self.help_title   = help_title
+            self.help_message = JLabel(help_message)
+            self.help_message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
+
+            if help_link is None:
+                self.help_link = SubTab.DOCS_URL
+            else:
+                self.help_link = help_link
+
+            self.setText(SubTab.BTN_HELP)
+            self.setFont(Font(Font.SANS_SERIF, Font.BOLD, 14))
+
+        def show_help(self):
+            result = JOptionPane.showOptionDialog(
+                self,
+                self.help_message,
+                self.help_title,
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                None,
+                ['Learn more', 'Close'],
+                'Close'
+            )
+            if result == 0:
+                browser_open(self.help_link)
+
 
 class OptionsTab(SubTab, ChangeListener):
-    DOCS_URL = 'https://github.com/elespike/burp-cph/wiki'
     BTN_DOCS = 'View full guide'
     BTN_QUICKSAVE = 'Quicksave'
     BTN_QUICKLOAD = 'Quickload'
@@ -678,7 +708,6 @@ class ConfigTab(SubTab):
     ]
     PARAM_HANDL_MATCH_RANGE          = 'of the matches'
     PARAM_HANDL_MATCH_SUBSET         = 'Which subset?'
-    PARAM_HANDL_BTN_HELP             = '?'
     PARAM_HANDL_ACTION_PREFIX        = '3)'
     PARAM_HANDL_COMBO_ACTION_REPLACE = 'Replace'
     PARAM_HANDL_COMBO_ACTION_INSERT  = 'Append to'
@@ -766,7 +795,7 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_match_indices = JTextField(12)
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
-        self.param_handl_button_indices_help = self.set_title_font(JButton(self.PARAM_HANDL_BTN_HELP))
+        self.param_handl_button_indices_help = self.HelpButton('Targeting a subset of matches', CPH_Help.indices)
         self.param_handl_button_indices_help.addActionListener(self)
         self.param_handl_action_lbl = self.set_title_font(JLabel(self.PARAM_HANDL_ACTION_SUFFIX.format('')))
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
@@ -989,23 +1018,9 @@ class ConfigTab(SubTab):
         c = e.getActionCommand()
         self._cph.logger.debug('Firing action command: {}'.format(c))
 
-        if c == self.PARAM_HANDL_BTN_HELP:
+        if c == self.BTN_HELP:
             source = e.getSource()
-            if source == self.param_handl_button_indices_help:
-                help_text = JLabel(CPH_Help.indices)
-                help_text.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
-                result = JOptionPane.showOptionDialog(
-                    self,
-                    help_text,
-                    'Targeting a subset of matches',
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.QUESTION_MESSAGE,
-                    None,
-                    ['Learn more', 'Close'],
-                    'Close'
-                )
-                if result == 0:
-                    pass # TODO open browser to relevant doc page
+            source.show_help()
 
         if c == 'comboBoxChanged':
             c = e.getSource().getSelectedItem()
