@@ -204,16 +204,16 @@ class SubTab(JScrollPane, ActionListener):
         cl.show(cardpanel, label)
 
     class HelpButton(JButton):
-        def __init__(self, help_title, help_message, help_link=None):
+        def __init__(self, title, message, link=None):
             super(JButton, self).__init__()
-            self.help_title   = help_title
-            self.help_message = JLabel(help_message)
-            self.help_message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
+            self.title   = title
+            self.message = JLabel(message)
+            self.message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
 
-            if help_link is None:
-                self.help_link = SubTab.DOCS_URL
+            if link is None:
+                self.link = SubTab.DOCS_URL
             else:
-                self.help_link = help_link
+                self.link = link
 
             self.setText(SubTab.BTN_HELP)
             self.setFont(Font(Font.SANS_SERIF, Font.BOLD, 14))
@@ -221,8 +221,8 @@ class SubTab(JScrollPane, ActionListener):
         def show_help(self):
             result = JOptionPane.showOptionDialog(
                 self,
-                self.help_message,
-                self.help_title,
+                self.message,
+                self.title,
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE,
                 None,
@@ -230,7 +230,7 @@ class SubTab(JScrollPane, ActionListener):
                 'Close'
             )
             if result == 0:
-                browser_open(self.help_link)
+                browser_open(self.link)
 
 
 class OptionsTab(SubTab, ChangeListener):
@@ -797,7 +797,7 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_match_indices.setEnabled(False)
         self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices.title, CPH_Help.indices.message)
         self.param_handl_button_indices_help.addActionListener(self)
-        self.param_handl_action_lbl = self.set_title_font(JLabel(self.PARAM_HANDL_ACTION_SUFFIX.format('')))
+        self.param_handl_action_lbl = self.set_title_font(JLabel(self.PARAM_HANDL_ACTION_SUFFIX.format('with ')))
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         self.param_handl_exp_pane_extract_cached = self.create_expression_pane(enforce_regex=True)
         self.param_handl_exp_pane_extract_single = self.create_expression_pane(enforce_regex=True)
@@ -818,6 +818,10 @@ class ConfigTab(SubTab):
         self.param_handl_cardpanel_static_or_extract = JPanel(FlexibleCardLayout())
         self.param_handl_combo_extract = JComboBox(self.PARAM_HANDL_COMBO_EXTRACT_CHOICES)
         self.param_handl_combo_extract.addActionListener(self)
+        self.param_handl_button_extract_static_help = self.HelpButton(CPH_Help.extract_static.title, CPH_Help.extract_static.message)
+        self.param_handl_button_extract_single_help = self.HelpButton(CPH_Help.extract_single.title, CPH_Help.extract_single.message)
+        self.param_handl_button_extract_macro_help = self.HelpButton(CPH_Help.extract_macro.title, CPH_Help.extract_macro.message)
+        self.param_handl_button_extract_cached_help = self.HelpButton(CPH_Help.extract_cached.title, CPH_Help.extract_cached.message)
         self.param_handl_combo_cached = JComboBox()
         self.param_handl_combo_cached.addActionListener(self)
 
@@ -965,6 +969,9 @@ class ConfigTab(SubTab):
         # Making a FlowLayout panel here so the combo box doesn't stretch
         combo_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         combo_pane.add(self.param_handl_combo_extract)
+        placeholder_btn = self.HelpButton('', '')
+        placeholder_btn.addActionListener(self)
+        combo_pane.add(placeholder_btn)
         combo_pane.add(self.create_blank_space())
         param_derivation_pane.add(combo_pane, constraints)
         constraints.gridy = 7
@@ -1020,7 +1027,18 @@ class ConfigTab(SubTab):
 
         if c == self.BTN_HELP:
             source = e.getSource()
-            source.show_help()
+            if source.title:
+                source.show_help()
+            else:
+                extract_combo_selection = self.param_handl_combo_extract.getSelectedItem()
+                if extract_combo_selection == self.PARAM_HANDL_COMBO_EXTRACT_STATIC:
+                    self.param_handl_button_extract_static_help.show_help()
+                if extract_combo_selection == self.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
+                    self.param_handl_button_extract_single_help.show_help()
+                if extract_combo_selection == self.PARAM_HANDL_COMBO_EXTRACT_MACRO:
+                    self.param_handl_button_extract_macro_help.show_help()
+                if extract_combo_selection == self.PARAM_HANDL_COMBO_EXTRACT_CACHED:
+                    self.param_handl_button_extract_cached_help.show_help()
 
         if c == 'comboBoxChanged':
             c = e.getSource().getSelectedItem()
