@@ -3,9 +3,14 @@ http://paletton.com/#uid=53i0u0k00n-bG6E0idM01Di00++
 http://startbootstrap.com/template-overviews/simple-sidebar/
 */
 body{
-background-color:#717171;
+background-color:#D9D9D9;
 font-family:Verdana, Geneva, sans-serif;
 font-size:12pt;
+}
+iframe{
+height: 90vh;
+width: 100%;
+border: none;
 }
 #menu-toggle, .nav, #sidebar-wrapper{
 position:fixed;
@@ -22,15 +27,17 @@ width:300px;
 .sidebar-nav, #page-content-wrapper, #wrapper.toggled #page-content-wrapper{
 position:absolute;
 }
+.content a, .desc a{
+border-bottom-style:dotted;
+border-bottom-width:1px;
+}
 a, a:hover, a:active, a:visited{
 color:#142020;
 text-decoration:none;
+border-style:hidden;
 }
 a:hover, #menu-toggle, .heading, li.node{
 color:#142020;
-}
-div.content a{
-text-decoration:underline;
 }
 .logo{
 width:100px;
@@ -53,7 +60,7 @@ text-indent:35px;
 display:block;
 }
 li a:hover{
-background:#717171 none repeat scroll 0 0;
+background:#D9D9D9 none repeat scroll 0 0;
 }
 li.node{
 text-indent:15px;
@@ -144,7 +151,7 @@ margin-left:-55px;
 margin-left:-5px;
 }
 #page-content-wrapper{
-padding:50px 20px 20px 70px;
+padding:50px 20px 20px 0px;
 position:relative;
 }
 #wrapper.toggled #page-content-wrapper{

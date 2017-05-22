@@ -2,6 +2,10 @@
 #  Begin CustomParameterHandler.py Imports
 ########################################################################################################################
 
+from datetime import datetime as dt
+from sys      import stdout
+from urllib   import quote
+
 from logging import (
     Formatter    ,
     INFO         ,
@@ -14,14 +18,13 @@ from re import (
     search           ,
     sub              ,
 )
-from sys    import stdout
-from urllib import quote
 
 from CPH_Config  import MainTab
 from burp        import IBurpExtender
+from burp        import IContextMenuFactory
+from burp        import IExtensionStateListener
 from burp        import IHttpListener
 from burp        import ISessionHandlingAction
-from burp        import IContextMenuFactory
 from javax.swing import JMenuItem
 
 ########################################################################################################################
@@ -32,7 +35,7 @@ from javax.swing import JMenuItem
 #  Begin CustomParameterHandler.py
 ########################################################################################################################
 
-class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContextMenuFactory):
+class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
         self._hostheader = 'Host: '
         self.messages_to_send = []
@@ -57,9 +60,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         self.helpers = callbacks.getHelpers()
         self.maintab = MainTab(self)
         callbacks.setExtensionName('Custom Parameter Handler')
+        callbacks.registerContextMenuFactory(self)
+        callbacks.registerExtensionStateListener(self)
         callbacks.registerHttpListener(self)
         callbacks.registerSessionHandlingAction(self)
-        callbacks.registerContextMenuFactory(self)
         callbacks.addSuiteTab(self.maintab)
 
     def getActionName(self):
@@ -87,6 +91,23 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
     def send_to_cph(self, e):
         self.maintab.add_config_tab(self.messages_to_send)
 
+    def extensionUnloaded(self):
+        while self.maintab.options_tab.emv_tab_pane.getTabCount():
+            self.maintab.options_tab.emv_tab_pane.remove(
+                self.maintab.options_tab.emv_tab_pane.getTabCount() - 1
+            )
+        self.maintab.options_tab.emv.dispose()
+
+        while self.maintab.mainpane.getTabCount():
+            # For some reason, the last tab isn't removed until the next loop,
+            # hence the try/except block with just a continue. Thx, Java.
+            try:
+                self.maintab.mainpane.remove(
+                    self.maintab.mainpane.getTabCount() - 1
+                )
+            except:
+                continue
+
     @staticmethod
     def split_host_port(host_and_port):
         split_index = host_and_port.index(':')
@@ -107,7 +128,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         # Update host header
         host = ''
         port = 80
-        https = tab.https_chkbox.isSelected()
+        https = tab.param_handl_https_chkbox.isSelected()
         if https:
             port = 443
         for header in headers:
@@ -118,7 +139,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         self.logger.debug('Host is: {}'.format(host))
 
         # Update cookies
-        if tab.update_cookies_chkbox.isSelected():
+        if tab.param_handl_update_cookies_chkbox.isSelected():
             cookies = self.callbacks.getCookieJarContents()
             for cookie in cookies:
                 cdom = cookie.getDomain()
@@ -216,6 +237,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     modified_request = self.modify_message(tab, req_as_string)
                     if req_as_string != modified_request:
+                        tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
                         req_as_string = modified_request
                         if tab.param_handl_auto_encode_chkbox.isSelected():
                             # URL-encode the first line of the request, since it was modified
@@ -261,7 +283,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
                     self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    resp_as_string = self.modify_message(tab, resp_as_string)
+                    modified_response = self.modify_message(tab, resp_as_string)
+                    if resp_as_string != modified_response:
+                        tab.emv_tab.add_table_row(dt.now().time(), False, resp_as_string, modified_response)
+                        resp_as_string = modified_response
                     resp = self.helpers.stringToBytes(resp_as_string)
 
             responseinfo = self.helpers.analyzeResponse(resp)

@@ -9,7 +9,9 @@ from logging import (
     WARNING,
     getLevelName,
 )
-from collections import OrderedDict as odict
+from collections import OrderedDict as odict, namedtuple
+from difflib     import unified_diff
+from itertools   import product
 from json        import dump, dumps, load, loads
 from thread      import start_new_thread
 from webbrowser  import open_new_tab as browser_open
@@ -37,6 +39,7 @@ from javax.swing import (
     JCheckBox,
     JComboBox,
     JFileChooser,
+    JFrame,
     JLabel,
     JOptionPane,
     JPanel,
@@ -45,11 +48,13 @@ from javax.swing import (
     JSpinner,
     JSplitPane,
     JTabbedPane,
+    JTable,
     JTextArea,
     JTextField,
     SpinnerNumberModel,
 )
-from javax.swing.event import ChangeListener
+from javax.swing.event import ChangeListener, ListSelectionListener
+from javax.swing.table import AbstractTableModel
 from javax.swing.filechooser import FileNameExtensionFilter
 
 ########################################################################################################################
@@ -74,6 +79,10 @@ class MainTab(ITab, ChangeListener):
     @staticmethod
     def getTabCaption():
         return 'CPH Config'
+
+    @staticmethod
+    def getOptionsTab():
+        return MainTab.mainpane.getComponentAt(0)
 
     def getUiComponent(self):
         return self.mainpane
@@ -120,8 +129,15 @@ class MainTab(ITab, ChangeListener):
         for tab_name, indices in indices_to_rename.items():
             x = 1
             for i in indices:
-                OptionsTab.set_tab_name(MainTab.mainpane.getComponentAt(i), tab_name + ' (%s)' % x)
+                MainTab.set_tab_name(MainTab.mainpane.getComponentAt(i), tab_name + ' (%s)' % x)
                 x += 1
+
+    @staticmethod
+    def set_tab_name(tab, tab_name):
+        tab.namepane_txtfield.tab_label.setText(tab_name)
+        tab.namepane_txtfield.setText(tab_name)
+        emv_tab_index = MainTab.mainpane.indexOfComponent(tab) - 1
+        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(emv_tab_index, tab_name)
 
     def stateChanged(self, e):
         if e.getSource() == self.mainpane:
@@ -235,6 +251,7 @@ class SubTab(JScrollPane, ActionListener):
 
 class OptionsTab(SubTab, ChangeListener):
     BTN_DOCS = 'View full guide'
+    BTN_EMV = 'Show EMV'
     BTN_QUICKSAVE = 'Quicksave'
     BTN_QUICKLOAD = 'Quickload'
     BTN_EXPORTCONFIG = 'Export Config'
@@ -276,6 +293,8 @@ class OptionsTab(SubTab, ChangeListener):
 
         btn_docs = JButton(self.BTN_DOCS)
         btn_docs.addActionListener(self)
+        btn_emv = JButton(self.BTN_EMV)
+        btn_emv.addActionListener(self)
         btn_quicksave = JButton(self.BTN_QUICKSAVE)
         btn_quicksave.addActionListener(self)
         btn_quickload = JButton(self.BTN_QUICKLOAD)
@@ -301,25 +320,29 @@ class OptionsTab(SubTab, ChangeListener):
         verbosity_pane.add(self.verbosity_spinner)
         verbosity_pane.add(self.verbosity_level_lbl)
 
+        self.emv = JFrame('Effective Modification Viewer')
+        self.emv_tab_pane = JTabbedPane()
+        self.emv.add(self.emv_tab_pane)
+
         btn_pane = JPanel(GridBagLayout())
         constraints = self.initialize_constraints()
         constraints.gridwidth = 2
-        btn_pane.add(self.create_blank_space(), constraints)
+        btn_pane.add(verbosity_pane, constraints)
         constraints.gridwidth = 1
         constraints.gridy = 1
-        btn_pane.add(verbosity_pane, constraints)
-        constraints.gridx = 1
-        btn_pane.add(btn_docs, constraints)
-        constraints.gridy = 2
-        constraints.gridx = 0
         btn_pane.add(btn_quicksave, constraints)
         constraints.gridx = 1
         btn_pane.add(btn_exportconfig, constraints)
-        constraints.gridy = 3
+        constraints.gridy = 2
         constraints.gridx = 0
         btn_pane.add(btn_quickload, constraints)
         constraints.gridx = 1
         btn_pane.add(btn_importconfig, constraints)
+        constraints.gridy = 3
+        constraints.gridx = 0
+        btn_pane.add(btn_docs, constraints)
+        constraints.gridx = 1
+        btn_pane.add(btn_emv, constraints)
 
         self.chkbox_proxy = JCheckBox('Proxy', True)
         self.chkbox_target = JCheckBox('Target', False)
@@ -359,7 +382,6 @@ class OptionsTab(SubTab, ChangeListener):
         quickstart_pane.add(quickstart_text_lbl)
 
         constraints = self.initialize_constraints()
-        constraints.weighty = 0.05
         constraints.gridwidth = 3
         self._main_tab_pane.add(self.create_blank_space(), constraints)
         constraints.gridwidth = 1
@@ -374,6 +396,8 @@ class OptionsTab(SubTab, ChangeListener):
         constraints.gridx = 0
         constraints.gridy = 2
         constraints.gridwidth = 3
+        self._main_tab_pane.add(self.create_blank_space(), constraints)
+        constraints.gridy = 3
         constraints.weighty = 1
         self._main_tab_pane.add(quickstart_pane, constraints)
 
@@ -383,14 +407,9 @@ class OptionsTab(SubTab, ChangeListener):
             self._cph.logger.setLevel(level)
             self.verbosity_level_lbl.setText(getLevelName(level))
 
-    @staticmethod
-    def set_tab_name(tab, tab_name):
-        tab.namepane_txtfield.tab_label.setText(tab_name)
-        tab.namepane_txtfield.setText(tab_name)
-
     def set_tab_values(self, tab, tab_name, config):
         # Scope pane
-        self.set_tab_name(tab, tab_name)
+        MainTab.set_tab_name(tab, tab_name)
         tab.tabtitle_pane.enable_chkbox.setSelected(
             config[self.configname_enabled])
         tab.msg_mod_combo_scope.setSelectedIndex(
@@ -500,6 +519,15 @@ class OptionsTab(SubTab, ChangeListener):
         if c == self.BTN_DOCS:
             browser_open(self.DOCS_URL)
 
+        if c == self.BTN_EMV:
+            if not self.emv.isVisible():
+                self.emv.pack()
+                self.emv.setSize(800, 600)
+                self.emv.show()
+            # Un-minimize
+            self.emv.setState(JFrame.NORMAL)
+            self.emv.toFront()
+
         if c == self.BTN_EXPORTCONFIG:
             tabcount = 0
             for tab in MainTab.get_config_tabs():
@@ -529,20 +557,21 @@ class OptionsTab(SubTab, ChangeListener):
         tabs_to_remove = {}
 
         # Modify existing and mark for purge where applicable
-        for tab_name in loaded_tab_names:
-            for tab in MainTab.get_config_tabs():
-                if tab_name == tab.namepane_txtfield.getText():
-                    self.set_tab_values(tab, tab_name, self.loaded_config[tab_name])
-                    if tab_name in loaded_tab_names:
-                        loaded_tab_names.remove(tab_name)
-                    tabs_to_remove[tab] = False
-                if tab not in tabs_to_remove:
-                    tabs_to_remove[tab] = True
-                    tabcount += 1
+        # Using list(loaded_tab_names) to create a copy, since the original list is being modified within the loop
+        for tab_name, tab in product(list(loaded_tab_names), MainTab.get_config_tabs()):
+            if tab_name == tab.namepane_txtfield.getText():
+                self.set_tab_values(tab, tab_name, self.loaded_config[tab_name])
+                if tab_name in loaded_tab_names:
+                    loaded_tab_names.remove(tab_name)
+                tabs_to_remove[tab] = False
+            if tab not in tabs_to_remove:
+                tabs_to_remove[tab] = True
+                tabcount += 1
 
         # Import and purge if applicable
         for tab, tab_marked in tabs_to_remove.items():
             if tab_marked and replace_config_tabs:
+                MainTab.getOptionsTab().emv_tab_pane.remove(tab.emv_tab)
                 MainTab.mainpane.remove(tab)
         for tab_name in loaded_tab_names:
             self.set_tab_values(ConfigTab(self._cph), tab_name, self.loaded_config[tab_name])
@@ -551,16 +580,14 @@ class OptionsTab(SubTab, ChangeListener):
         # Restore tab order
         if len(loaded_tab_names) > 1:
             x = 0
-            for tab_name in loaded_tab_names:
-                for tab in MainTab.get_config_tabs():
-                    if tab_name == tab.namepane_txtfield.getText():
-                        MainTab.mainpane.setSelectedIndex(
-                            MainTab.mainpane.indexOfComponent(tab))
-                        for i in range(tabcount):
-                            ConfigTab.move_tab_back(tab)
-                        for i in range(x):
-                            ConfigTab.move_tab_fwd(tab)
-                        break
+            for tab_name, tab in product(loaded_tab_names, MainTab.get_config_tabs()):
+                if tab_name == tab.namepane_txtfield.getText():
+                    MainTab.mainpane.setSelectedIndex(MainTab.mainpane.indexOfComponent(tab))
+                    for i in range(tabcount):
+                        ConfigTab.move_tab_back(tab)
+                    for i in range(x):
+                        ConfigTab.move_tab_fwd(tab)
+                    break
                 x += 1
 
         ConfigTab.disable_all_cache_viewers()
@@ -602,6 +629,128 @@ class OptionsTab(SubTab, ChangeListener):
         config[self.configname_cached_regex        ] = self.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
         return config
 
+class EMVTab(JSplitPane, ListSelectionListener):
+    MAX_ITEMS = 30
+    def __init__(self, configtab):
+        self.configtab = configtab
+
+        self.table = JTable(self.EMVTableModel())
+        self.table_model = self.table.getModel()
+        sm = self.table.getSelectionModel()
+        sm.setSelectionMode(0) # Single selection
+        sm.addListSelectionListener(self)
+
+        table_pane = JScrollPane()
+        table_pane.setViewportView(self.table)
+        table_pane.getVerticalScrollBar().setUnitIncrement(16)
+
+        self.original_field = JTextArea()
+        self.original_field.setEditable(False)
+
+        original_pane = JScrollPane()
+        original_pane.setViewportView(self.original_field)
+        original_pane.getVerticalScrollBar().setUnitIncrement(16)
+
+        self.modified_field = JTextArea()
+        self.modified_field.setEditable(False)
+
+        modified_pane = JScrollPane()
+        modified_pane.setViewportView(self.modified_field)
+        modified_pane.getVerticalScrollBar().setUnitIncrement(16)
+
+        self.viewer = JSplitPane()
+        self.viewer.setLeftComponent(original_pane)
+        self.viewer.setRightComponent(modified_pane)
+
+        self.diff_field = JTextArea()
+        self.diff_field.setEditable(False)
+
+        diff_pane = JScrollPane()
+        diff_pane.setViewportView(self.diff_field)
+        diff_pane.getVerticalScrollBar().setUnitIncrement(16)
+
+        diffpane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
+        diffpane.setTopComponent(diff_pane)
+        diffpane.setBottomComponent(self.viewer)
+        diffpane.setDividerLocation(100)
+
+        viewer_pane = JPanel(GridBagLayout())
+        constraints = GridBagConstraints()
+        constraints.weightx = 1
+        constraints.weighty = 1
+        constraints.fill = GridBagConstraints.BOTH
+        constraints.anchor = GridBagConstraints.NORTH
+        constraints.gridx = 0
+        constraints.gridy = 0
+        viewer_pane.add(diffpane, constraints)
+
+        self.setOrientation(JSplitPane.VERTICAL_SPLIT)
+        self.setTopComponent(table_pane)
+        self.setBottomComponent(viewer_pane)
+        self.setDividerLocation(100)
+
+    def add_table_row(self, time, is_request, original_msg, modified_msg):
+        if not self.table_model.rows:
+            self.viewer.setDividerLocation(0.5)
+        message_type = 'Response'
+        if is_request:
+            message_type = 'Request'
+        self.table_model.rows.insert(0, [str(time)[:-3], message_type, len(modified_msg) - len(original_msg)])
+        self.table_model.messages.insert(0, self.table_model.MessagePair(original_msg, modified_msg))
+
+        if len(self.table_model.rows) > self.MAX_ITEMS:
+            self.table_model.rows.pop(-1)
+        if len(self.table_model.messages) > self.MAX_ITEMS:
+            self.table_model.messages.pop(-1)
+
+        self.table_model.fireTableDataChanged()
+        self.table.setRowSelectionInterval(0, 0)
+
+    def valueChanged(self, e):
+        index = self.table.getSelectedRow()
+        original_msg = self.table_model.messages[index].original_msg
+        modified_msg = self.table_model.messages[index].modified_msg
+        diff = unified_diff(original_msg.splitlines(1), modified_msg.splitlines(1))
+        text = ''
+        for line in diff:
+            if '---' in line or '+++' in line:
+                continue
+            text += line
+            if not text.endswith('\n'):
+                text += '\n'
+        self.diff_field.setText(text)
+        self.original_field.setText(original_msg)
+        self.modified_field.setText(modified_msg)
+
+    class EMVTableModel(AbstractTableModel):
+        def __init__(self):
+            super(EMVTab.EMVTableModel, self).__init__()
+            self.MessagePair = namedtuple('MessagePair', 'original_msg, modified_msg')
+            self.rows = []
+            self.messages = []
+
+        def getRowCount(self):
+            return len(self.rows)
+
+        def getColumnCount(self):
+            return 3
+
+        def getColumnName(self, columnIndex):
+            if columnIndex == 0:
+                return 'Time'
+            if columnIndex == 1:
+                return 'Type'
+            if columnIndex == 2:
+                return 'Length Difference'
+
+        def getValueAt(self, rowIndex, columnIndex):
+            return self.rows[rowIndex][columnIndex]
+
+        def setValueAt(self, aValue, rowIndex, columnIndex):
+            return
+
+        def isCellEditable(self, rowIndex, columnIndex):
+            return False
 
 class ConfigTabTitle(JPanel):
     def __init__(self):
@@ -628,6 +777,7 @@ class ConfigTabTitle(JPanel):
             if tabcount == 3 or tabindex == tabcount - 2:
                 MainTab.mainpane.setSelectedIndex(tabcount - 3)
             MainTab.mainpane.remove(tabindex)
+            MainTab.getOptionsTab().emv_tab_pane.remove(tabindex - 1)
             ConfigTab.disable_all_cache_viewers()
 
         class CloseButtonMouseListener(MouseAdapter):
@@ -655,6 +805,8 @@ class ConfigTabNameField(JTextField, KeyListener):
 
     def keyReleased(self, e):
         self.tab_label.setText(self.getText())
+        emv_tab_index = MainTab.mainpane.getSelectedIndex() - 1
+        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(emv_tab_index, self.getText())
 
     def keyPressed(self, e):
         # Doing self._tab_label.setText() here is sub-optimal. Leave it above.
@@ -842,6 +994,9 @@ class ConfigTab(SubTab):
         constraints.weighty = 1
         self._main_tab_pane.add(param_handl_layout_pane, constraints)
 
+        self.emv_tab = EMVTab(self)
+        MainTab.getOptionsTab().emv_tab_pane.add(self.namepane_txtfield.getText(), self.emv_tab)
+
     def initialize_req_resp(self):
         return [], self._cph.helpers.stringToBytes(''.join([' \r\n' for i in range(6)]))
 
@@ -925,7 +1080,7 @@ class ConfigTab(SubTab):
         splitpane.setLeftComponent(self.param_handl_request_editor.getComponent())
         splitpane.setRightComponent(self.param_handl_response_editor.getComponent())
         derive_param_single_card.add(splitpane, constraints)
-        splitpane.setDividerLocation(500)
+        splitpane.setDividerLocation(0.5)
 
         derive_param_macro_card = JPanel(GridBagLayout())
         constraints = self.initialize_constraints()
@@ -946,7 +1101,7 @@ class ConfigTab(SubTab):
         splitpane.setLeftComponent(self.param_handl_cached_req_viewer.getComponent())
         splitpane.setRightComponent(self.param_handl_cached_resp_viewer.getComponent())
         cached_param_card.add(splitpane, constraints)
-        splitpane.setDividerLocation(500)
+        splitpane.setDividerLocation(0.5)
 
         self.param_handl_cardpanel_static_or_extract.add(static_param_card, self.PARAM_HANDL_COMBO_EXTRACT_STATIC)
         self.param_handl_cardpanel_static_or_extract.add(derive_param_single_card, self.PARAM_HANDL_COMBO_EXTRACT_SINGLE)
@@ -979,31 +1134,45 @@ class ConfigTab(SubTab):
         param_derivation_pane.add(self.param_handl_cardpanel_static_or_extract, constraints)
 
     @staticmethod
+    def move_tab(tab, desired_index):
+        if desired_index <= 0 or desired_index >= MainTab.mainpane.getTabCount() - 1:
+            return
+
+        MainTab.mainpane.setSelectedIndex(0)
+        emv_sel_tab = MainTab.getOptionsTab().emv_tab_pane.getSelectedComponent()
+        current_index = MainTab.mainpane.indexOfComponent(tab)
+        if current_index > desired_index:
+            MainTab.mainpane.add(tab, desired_index)
+            MainTab.getOptionsTab().emv_tab_pane.add(tab.emv_tab, desired_index - 1)
+        else:
+            # I've no idea why +1 is needed here. =)
+            MainTab.mainpane.add(tab, desired_index + 1)
+            MainTab.getOptionsTab().emv_tab_pane.add(tab.emv_tab, desired_index)
+
+        MainTab.mainpane.setTabComponentAt(desired_index, tab.tabtitle_pane)
+        MainTab.mainpane.setSelectedIndex(desired_index)
+        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(desired_index - 1, tab.namepane_txtfield.getText())
+        MainTab.getOptionsTab().emv_tab_pane.setSelectedComponent(emv_sel_tab)
+
+    @staticmethod
     def move_tab_back(tab):
         desired_index = MainTab.mainpane.getSelectedIndex() - 1
-        if desired_index > 0:
-            MainTab.mainpane.setSelectedIndex(0)
-            MainTab.mainpane.add(tab, desired_index)
-            MainTab.mainpane.setTabComponentAt(desired_index, tab.tabtitle_pane)
-            MainTab.mainpane.setSelectedIndex(desired_index)
+        ConfigTab.move_tab(tab, desired_index)
 
     @staticmethod
     def move_tab_fwd(tab):
         desired_index = MainTab.mainpane.getSelectedIndex() + 1
-        if desired_index < MainTab.mainpane.getComponentCount() - 2:
-            MainTab.mainpane.setSelectedIndex(0)
-            MainTab.mainpane.add(tab, desired_index + 1)
-            MainTab.mainpane.setTabComponentAt(desired_index, tab.tabtitle_pane)
-            MainTab.mainpane.setSelectedIndex(desired_index)
+        ConfigTab.move_tab(tab, desired_index)
 
     def clone_tab(self, tab):
-        desired_index = MainTab.mainpane.getSelectedIndex() + 1
         newtab = ConfigTab(self._cph)
-        OptionsTab.set_tab_name(newtab, tab.namepane_txtfield.getText())
-        config = self._cph.maintab.options_tab.prepare_to_save_tab(tab)
-        self._cph.maintab.options_tab.loaded_config = {tab.namepane_txtfield.getText(): config}
-        self._cph.maintab.options_tab.load_config(False)
-        if desired_index < MainTab.mainpane.getComponentCount() - 2:
+        MainTab.set_tab_name(newtab, tab.namepane_txtfield.getText())
+        config = MainTab.getOptionsTab().prepare_to_save_tab(tab)
+        MainTab.getOptionsTab().loaded_config = {tab.namepane_txtfield.getText(): config}
+        MainTab.getOptionsTab().load_config(False)
+
+        desired_index = MainTab.mainpane.getSelectedIndex() + 1
+        if desired_index < MainTab.mainpane.getTabCount() - 1:
             MainTab.mainpane.setSelectedIndex(0)
             MainTab.mainpane.add(newtab, desired_index)
             MainTab.mainpane.setTabComponentAt(desired_index, newtab.tabtitle_pane)
