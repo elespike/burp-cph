@@ -690,13 +690,14 @@ class EMVTab(JSplitPane, ListSelectionListener):
         self.setDividerLocation(100)
 
     def add_table_row(self, time, is_request, original_msg, modified_msg):
-        if not self.table_model.rows:
-            self.viewer.setDividerLocation(0.5)
         message_type = 'Response'
         if is_request:
             message_type = 'Request'
         self.table_model.rows.insert(0, [str(time)[:-3], message_type, len(modified_msg) - len(original_msg)])
         self.table_model.messages.insert(0, self.table_model.MessagePair(original_msg, modified_msg))
+
+        if len(self.table_model.rows) == 1:
+            self.viewer.setDividerLocation(0.5)
 
         if len(self.table_model.rows) > self.MAX_ITEMS:
             self.table_model.rows.pop(-1)
