@@ -92,11 +92,14 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.maintab.add_config_tab(self.messages_to_send)
 
     def extensionUnloaded(self):
-        while self.maintab.options_tab.emv_tab_pane.getTabCount():
-            self.maintab.options_tab.emv_tab_pane.remove(
-                self.maintab.options_tab.emv_tab_pane.getTabCount() - 1
-            )
-        self.maintab.options_tab.emv.dispose()
+        try:
+            while self.maintab.options_tab.emv_tab_pane.getTabCount():
+                self.maintab.options_tab.emv_tab_pane.remove(
+                    self.maintab.options_tab.emv_tab_pane.getTabCount() - 1
+                )
+            self.maintab.options_tab.emv.dispose()
+        except AttributeError:
+            self.logger.warning('Effective Modification Viewer not found! You may be using an outdated version of CPH!')
 
         while self.maintab.mainpane.getTabCount():
             # For some reason, the last tab isn't removed until the next loop,

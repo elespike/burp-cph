@@ -848,7 +848,7 @@ class ConfigTab(SubTab):
 
     # Handling pane
     PARAM_HANDL_GROUP                 = 'Parameter handling'
-    PARAM_HANDL_AUTO_ENCODE           = 'Automatically URL-encode the first line of the request, if modified'
+    PARAM_HANDL_AUTO_ENCODE           = '<html>Automatically URL-encode the first line of the request, if modified<br>&nbsp;</html>'
     PARAM_HANDL_MATCH_EXP             = ' 1) Find matches to this expression:'
     PARAM_HANDL_TARGET                = '2) Target'
     PARAM_HANDL_COMBO_INDICES_FIRST   = 'the first'
@@ -941,6 +941,7 @@ class ConfigTab(SubTab):
 
         self.param_handl_exp_pane_target = self.create_expression_pane()
         self.param_handl_auto_encode_chkbox = JCheckBox(self.PARAM_HANDL_AUTO_ENCODE, True)
+        self.param_handl_auto_encode_chkbox.setVerticalTextPosition(1) # 1 is Top
         self.param_handl_combo_indices = JComboBox(self.PARAM_HANDL_COMBO_INDICES_CHOICES)
         self.param_handl_combo_indices.addActionListener(self)
         self.param_handl_combo_action = JComboBox(self.PARAM_HANDL_COMBO_ACTION_CHOICES)
@@ -1213,6 +1214,11 @@ class ConfigTab(SubTab):
         if c == 'comboBoxChanged':
             c = e.getSource().getSelectedItem()
             self._cph.logger.debug('Action command is now: {}'.format(c))
+
+        if c == self.MSG_MOD_COMBO_TYPE_RESP:
+            self.param_handl_auto_encode_chkbox.setVisible(False)
+        elif c == self.MSG_MOD_COMBO_TYPE_REQ or c == self.MSG_MOD_COMBO_TYPE_BOTH:
+            self.param_handl_auto_encode_chkbox.setVisible(True)
 
         if c == self.MSG_MOD_COMBO_SCOPE_ALL:
             self.msg_mod_exp_pane_scope_lbl.setVisible(False)
