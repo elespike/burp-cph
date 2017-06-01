@@ -828,15 +828,15 @@ class UndoableKeyListener(KeyListener):
         target.getDocument().addUndoableEditListener(self.undomgr)
 
     def keyReleased(self, e):
+        pass
+
+    def keyPressed(self, e):
         if ord(e.getKeyChar()) == self.UNDO and self.undomgr.canUndo():
             self.undomgr.undo()
             return
         if ord(e.getKeyChar()) == self.REDO and self.undomgr.canRedo():
             self.undomgr.redo()
             return
-
-    def keyPressed(self, e):
-        pass
 
     def keyTyped(self, e):
         pass
