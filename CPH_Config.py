@@ -55,6 +55,7 @@ from javax.swing import (
 )
 from javax.swing.event import ChangeListener, ListSelectionListener
 from javax.swing.table import AbstractTableModel
+from javax.swing.undo import UndoManager
 from javax.swing.filechooser import FileNameExtensionFilter
 
 ########################################################################################################################
@@ -804,6 +805,8 @@ class ConfigTabNameField(JTextField, KeyListener):
         self.addKeyListener(self)
         self.tab_label = tab_label
 
+        self.addKeyListener(UndoableKeyListener(self))
+
     def keyReleased(self, e):
         self.tab_label.setText(self.getText())
         emv_tab_index = MainTab.mainpane.getSelectedIndex() - 1
@@ -811,6 +814,28 @@ class ConfigTabNameField(JTextField, KeyListener):
 
     def keyPressed(self, e):
         # Doing self._tab_label.setText() here is sub-optimal. Leave it above.
+        pass
+
+    def keyTyped(self, e):
+        pass
+
+
+class UndoableKeyListener(KeyListener):
+    REDO = 25
+    UNDO = 26
+    def __init__(self, target):
+        self.undomgr = UndoManager()
+        target.getDocument().addUndoableEditListener(self.undomgr)
+
+    def keyReleased(self, e):
+        if ord(e.getKeyChar()) == self.UNDO and self.undomgr.canUndo():
+            self.undomgr.undo()
+            return
+        if ord(e.getKeyChar()) == self.REDO and self.undomgr.canRedo():
+            self.undomgr.redo()
+            return
+
+    def keyPressed(self, e):
         pass
 
     def keyTyped(self, e):
@@ -947,6 +972,8 @@ class ConfigTab(SubTab):
         self.param_handl_combo_action = JComboBox(self.PARAM_HANDL_COMBO_ACTION_CHOICES)
         self.param_handl_combo_action.addActionListener(self)
         self.param_handl_txtfield_match_indices = JTextField(12)
+        self.param_handl_txtfield_match_indices.addKeyListener(
+            UndoableKeyListener(self.param_handl_txtfield_match_indices))
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
         self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices.title, CPH_Help.indices.message)
@@ -959,6 +986,8 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_extract_static = JTextArea()
         self.param_handl_txtfield_extract_static.setLineWrap(True)
         self.param_handl_txtfield_extract_static.setColumns(self.TXT_FIELD_SIZE)
+        self.param_handl_txtfield_extract_static.addKeyListener(
+            UndoableKeyListener(self.param_handl_txtfield_extract_static))
         self.param_handl_cached_req_viewer = self._cph.callbacks.createMessageEditor(None, False)
         self.param_handl_cached_req_viewer.setMessage(self.cached_request, True)
         self.param_handl_cached_resp_viewer = self._cph.callbacks.createMessageEditor(None, False)
@@ -1005,6 +1034,8 @@ class ConfigTab(SubTab):
     def create_expression_pane(self, enforce_regex=False, label=None):
         field = JTextField()
         field.setColumns(self.TXT_FIELD_SIZE)
+
+        field.addKeyListener(UndoableKeyListener(field))
 
         box = JCheckBox(self.REGEX)
         if enforce_regex:
