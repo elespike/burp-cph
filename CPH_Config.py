@@ -93,26 +93,26 @@ class MainTab(ITab, ChangeListener):
         MainTab.mainpane.getActionMap().put('clone_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().clone_tab()
                                                                 if MainTab.mainpane.getSelectedIndex() > 0
                                                                 else None))
-        # Ctrl+W
-        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(87, 2), 'close_tab')
+        # Ctrl+W only on key released
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(87, 2, True), 'close_tab')
         MainTab.mainpane.getActionMap().put('close_tab', Action(MainTab.close_tab))
-        # Ctrl+E
-        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(69, 2), 'toggle_tab')
+        # Ctrl+E only on key released
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(69, 2, True), 'toggle_tab')
         MainTab.mainpane.getActionMap().put('toggle_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().tabtitle_pane.enable_chkbox.setSelected(
             not MainTab.mainpane.getSelectedComponent().tabtitle_pane.enable_chkbox.isSelected())))
-        # Ctrl+<
+        # Ctrl+,
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(44, 2), 'select_previous_tab')
         MainTab.mainpane.getActionMap().put('select_previous_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(MainTab.mainpane.getSelectedIndex() - 1)
                                                                           if MainTab.mainpane.getSelectedIndex() > 0
                                                                           else MainTab.mainpane.setSelectedIndex(0)))
-        # Ctrl+>
+        # Ctrl+.
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(46, 2), 'select_next_tab')
         MainTab.mainpane.getActionMap().put('select_next_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(MainTab.mainpane.getSelectedIndex() + 1)))
-        # Ctrl+Shift+<
+        # Ctrl+Shift+,
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(44, 3), 'move_tab_back')
         MainTab.mainpane.getActionMap().put('move_tab_back', Action(lambda: MainTab.mainpane.getSelectedComponent().move_tab_back(
             MainTab.mainpane.getSelectedComponent())))
-        # Ctrl+Shift+>
+        # Ctrl+Shift+.
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(46, 3), 'move_tab_fwd')
         MainTab.mainpane.getActionMap().put('move_tab_fwd', Action(lambda: MainTab.mainpane.getSelectedComponent().move_tab_fwd(
             MainTab.mainpane.getSelectedComponent())))
