@@ -83,13 +83,16 @@ class MainTab(ITab, ChangeListener):
             def __init__(self, action):
                 self.action = action
             def actionPerformed(self, e):
-                self.action()
+                if self.action:
+                    self.action()
         # Ctrl+N only on key released
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 2, True), 'add_config_tab')
         MainTab.mainpane.getActionMap().put('add_config_tab', Action(lambda: ConfigTab(self._cph)))
         # Ctrl+Shift+N only on key released
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 3, True), 'clone_tab')
-        MainTab.mainpane.getActionMap().put('clone_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().clone_tab()))
+        MainTab.mainpane.getActionMap().put('clone_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().clone_tab()
+                                                                if MainTab.mainpane.getSelectedIndex() > 0
+                                                                else None))
         # Ctrl+W
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(87, 2), 'close_tab')
         MainTab.mainpane.getActionMap().put('close_tab', Action(MainTab.close_tab))
@@ -99,8 +102,9 @@ class MainTab(ITab, ChangeListener):
             not MainTab.mainpane.getSelectedComponent().tabtitle_pane.enable_chkbox.isSelected())))
         # Ctrl+<
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(44, 2), 'select_previous_tab')
-        MainTab.mainpane.getActionMap().put('select_previous_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(
-            MainTab.mainpane.getSelectedIndex() - 1) if MainTab.mainpane.getSelectedIndex() > 0 else MainTab.mainpane.setSelectedIndex(0)))
+        MainTab.mainpane.getActionMap().put('select_previous_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(MainTab.mainpane.getSelectedIndex() - 1)
+                                                                          if MainTab.mainpane.getSelectedIndex() > 0
+                                                                          else MainTab.mainpane.setSelectedIndex(0)))
         # Ctrl+>
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(46, 2), 'select_next_tab')
         MainTab.mainpane.getActionMap().put('select_next_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(MainTab.mainpane.getSelectedIndex() + 1)))
