@@ -34,6 +34,7 @@ from java.awt.event import (
     MouseAdapter,
 )
 from javax.swing import (
+    AbstractAction,
     BorderFactory,
     JButton,
     JCheckBox,
@@ -51,6 +52,7 @@ from javax.swing import (
     JTable,
     JTextArea,
     JTextField,
+    KeyStroke,
     SpinnerNumberModel,
 )
 from javax.swing.event import ChangeListener, ListSelectionListener
@@ -76,6 +78,40 @@ class MainTab(ITab, ChangeListener):
         self.mainpane.add('Options', self.options_tab)
         self._add_sign = unichr(0x002b)  # addition sign
         self.mainpane.add(self._add_sign, JPanel())
+
+        class Action(AbstractAction):
+            def __init__(self, action):
+                self.action = action
+            def actionPerformed(self, e):
+                self.action()
+        # Ctrl+N only on key released
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 2, True), 'add_config_tab')
+        MainTab.mainpane.getActionMap().put('add_config_tab', Action(lambda: ConfigTab(self._cph)))
+        # Ctrl+Shift+N only on key released
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 3, True), 'clone_tab')
+        MainTab.mainpane.getActionMap().put('clone_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().clone_tab()))
+        # Ctrl+W
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(87, 2), 'close_tab')
+        MainTab.mainpane.getActionMap().put('close_tab', Action(MainTab.close_tab))
+        # Ctrl+E
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(69, 2), 'toggle_tab')
+        MainTab.mainpane.getActionMap().put('toggle_tab', Action(lambda: MainTab.mainpane.getSelectedComponent().tabtitle_pane.enable_chkbox.setSelected(
+            not MainTab.mainpane.getSelectedComponent().tabtitle_pane.enable_chkbox.isSelected())))
+        # Ctrl+<
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(44, 2), 'select_previous_tab')
+        MainTab.mainpane.getActionMap().put('select_previous_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(
+            MainTab.mainpane.getSelectedIndex() - 1) if MainTab.mainpane.getSelectedIndex() > 0 else MainTab.mainpane.setSelectedIndex(0)))
+        # Ctrl+>
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(46, 2), 'select_next_tab')
+        MainTab.mainpane.getActionMap().put('select_next_tab', Action(lambda: MainTab.mainpane.setSelectedIndex(MainTab.mainpane.getSelectedIndex() + 1)))
+        # Ctrl+Shift+<
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(44, 3), 'move_tab_back')
+        MainTab.mainpane.getActionMap().put('move_tab_back', Action(lambda: MainTab.mainpane.getSelectedComponent().move_tab_back(
+            MainTab.mainpane.getSelectedComponent())))
+        # Ctrl+Shift+>
+        MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(46, 3), 'move_tab_fwd')
+        MainTab.mainpane.getActionMap().put('move_tab_fwd', Action(lambda: MainTab.mainpane.getSelectedComponent().move_tab_fwd(
+            MainTab.mainpane.getSelectedComponent())))
 
     @staticmethod
     def getTabCaption():
@@ -139,6 +175,19 @@ class MainTab(ITab, ChangeListener):
         tab.namepane_txtfield.setText(tab_name)
         emv_tab_index = MainTab.mainpane.indexOfComponent(tab) - 1
         MainTab.getOptionsTab().emv_tab_pane.setTitleAt(emv_tab_index, tab_name)
+
+    @staticmethod
+    def close_tab(tabindex=None):
+        if not tabindex:
+            tabindex = MainTab.mainpane.getSelectedIndex()
+        tabcount = MainTab.mainpane.getTabCount()
+        if tabindex == 0 or tabcount == 2:
+            return
+        if tabcount == 3 or tabindex == tabcount - 2:
+            MainTab.mainpane.setSelectedIndex(tabcount - 3)
+        MainTab.mainpane.remove(tabindex)
+        MainTab.getOptionsTab().emv_tab_pane.remove(tabindex - 1)
+        ConfigTab.disable_all_cache_viewers()
 
     def stateChanged(self, e):
         if e.getSource() == self.mainpane:
@@ -316,7 +365,7 @@ class OptionsTab(SubTab, ChangeListener):
         self.verbosity_spinner = JSpinner(SpinnerNumberModel(info, err, dbg, 1))
         self.verbosity_spinner.addChangeListener(self)
 
-        verbosity_pane = JPanel(FlowLayout(FlowLayout.CENTER))
+        verbosity_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         verbosity_pane.add(JLabel(self.VERBOSITY))
         verbosity_pane.add(self.verbosity_spinner)
         verbosity_pane.add(self.verbosity_level_lbl)
@@ -774,13 +823,7 @@ class ConfigTabTitle(JPanel):
             self.addActionListener(self)
 
         def actionPerformed(self, e):
-            tabindex = MainTab.mainpane.indexOfTabComponent(self.getParent())
-            tabcount = MainTab.mainpane.getTabCount()
-            if tabcount == 3 or tabindex == tabcount - 2:
-                MainTab.mainpane.setSelectedIndex(tabcount - 3)
-            MainTab.mainpane.remove(tabindex)
-            MainTab.getOptionsTab().emv_tab_pane.remove(tabindex - 1)
-            ConfigTab.disable_all_cache_viewers()
+            MainTab.close_tab(MainTab.mainpane.indexOfTabComponent(self.getParent()))
 
         class CloseButtonMouseListener(MouseAdapter):
             def mouseEntered(self, e):
@@ -821,8 +864,9 @@ class ConfigTabNameField(JTextField, KeyListener):
 
 
 class UndoableKeyListener(KeyListener):
-    REDO = 25
-    UNDO = 26
+    REDO = 89
+    UNDO = 90
+    CTRL = 2
     def __init__(self, target):
         self.undomgr = UndoManager()
         target.getDocument().addUndoableEditListener(self.undomgr)
@@ -831,12 +875,11 @@ class UndoableKeyListener(KeyListener):
         pass
 
     def keyPressed(self, e):
-        if ord(e.getKeyChar()) == self.UNDO and self.undomgr.canUndo():
-            self.undomgr.undo()
-            return
-        if ord(e.getKeyChar()) == self.REDO and self.undomgr.canRedo():
-            self.undomgr.redo()
-            return
+        if e.getModifiers() == self.CTRL:
+            if e.getKeyCode() == self.UNDO and self.undomgr.canUndo():
+                self.undomgr.undo()
+            if e.getKeyCode() == self.REDO and self.undomgr.canRedo():
+                self.undomgr.redo()
 
     def keyTyped(self, e):
         pass
@@ -1197,11 +1240,11 @@ class ConfigTab(SubTab):
         desired_index = MainTab.mainpane.getSelectedIndex() + 1
         ConfigTab.move_tab(tab, desired_index)
 
-    def clone_tab(self, tab):
+    def clone_tab(self):
         newtab = ConfigTab(self._cph)
-        MainTab.set_tab_name(newtab, tab.namepane_txtfield.getText())
-        config = MainTab.getOptionsTab().prepare_to_save_tab(tab)
-        MainTab.getOptionsTab().loaded_config = {tab.namepane_txtfield.getText(): config}
+        MainTab.set_tab_name(newtab, self.namepane_txtfield.getText())
+        config = MainTab.getOptionsTab().prepare_to_save_tab(self)
+        MainTab.getOptionsTab().loaded_config = {self.namepane_txtfield.getText(): config}
         MainTab.getOptionsTab().load_config(False)
 
         desired_index = MainTab.mainpane.getSelectedIndex() + 1
@@ -1296,7 +1339,7 @@ class ConfigTab(SubTab):
             self.disable_all_cache_viewers()
 
         if c == self.BTN_CLONETAB:
-            self.clone_tab(self)
+            self.clone_tab()
             self.disable_all_cache_viewers()
 
 
