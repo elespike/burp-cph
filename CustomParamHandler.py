@@ -453,11 +453,14 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
 
         match_count = original_msg.count(match_value)
-        match_indices = ph_field_matchnum_txt.replace(' ', '').split(',')
-        len_match_indices = len(match_indices)
-        for i, v in enumerate(match_indices):
-            if i == len_match_indices:
-                break
+        if not match_count:
+            self.logger.warning('No match found for "{}"! Skipping tab "{}".'.format(
+                match_value, tab.namepane_txtfield.getText()))
+            return original_msg
+
+        subset = ph_field_matchnum_txt.replace(' ', '').split(',')
+        match_indices = []
+        for i, v in enumerate(subset):
             try:
                 if ':' in v:
                     sliceindex = v.index(':')
@@ -468,15 +471,12 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     if end < 0:
                         end = match_count + end
                     for match_index in range(start, end):
-                        if match_index == start:
-                            match_indices[i] = match_index
-                        else:
-                            match_indices.append(match_index)
+                        match_indices.append(match_index)
                 else:
                     match_index = int(v)
                     if match_index < 0:
                         match_index = match_count + match_index
-                    match_indices[i] = match_index
+                    match_indices.append(match_index)
             except ValueError:
                 self.logger.exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
                     tab.namepane_txtfield.getText()))
@@ -514,11 +514,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 modification_count += 1
                 self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
                     match_index, match_value, replace_value))
-
-        if modification_count == 0:
-            self.logger.warning('No match found for "{}"! Skipping tab "{}".'.format(
-                match_value, tab.namepane_txtfield.getText()))
-            return original_msg
 
         return msg_as_string
 
