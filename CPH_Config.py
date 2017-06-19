@@ -203,7 +203,7 @@ class MainTab(ITab, ChangeListener):
 
 class SubTab(JScrollPane, ActionListener):
     BTN_HELP = '?'
-    DOCS_URL = 'https://github.com/elespike/burp-cph/wiki'
+    DOCS_URL = 'https://elespike.github.io/burp-cph/'
     INSETS   = Insets(2, 4, 2, 4)
 
     def __init__(self, cph):
@@ -274,15 +274,14 @@ class SubTab(JScrollPane, ActionListener):
         cl.show(cardpanel, label)
 
     class HelpButton(JButton):
-        def __init__(self, title, message, link=None):
+        def __init__(self, title, message, link=''):
             super(JButton, self).__init__()
             self.title   = title
             self.message = JLabel(message)
             self.message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
 
-            if link is None:
-                self.link = SubTab.DOCS_URL
-            else:
+            self.link = SubTab.DOCS_URL
+            if link:
                 self.link = link
 
             self.setText(SubTab.BTN_HELP)
@@ -1023,7 +1022,7 @@ class ConfigTab(SubTab):
             UndoableKeyListener(self.param_handl_txtfield_match_indices))
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
-        self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices.title, CPH_Help.indices.message)
+        self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices.title, CPH_Help.indices.message, 'https://elespike.github.io/burp-cph/#quickstart/indices')
         self.param_handl_button_indices_help.addActionListener(self)
         self.param_handl_action_lbl = self.set_title_font(JLabel(self.PARAM_HANDL_ACTION_SUFFIX.format('with ')))
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
@@ -1048,10 +1047,10 @@ class ConfigTab(SubTab):
         self.param_handl_cardpanel_static_or_extract = JPanel(FlexibleCardLayout())
         self.param_handl_combo_extract = JComboBox(self.PARAM_HANDL_COMBO_EXTRACT_CHOICES)
         self.param_handl_combo_extract.addActionListener(self)
-        self.param_handl_button_extract_static_help = self.HelpButton(CPH_Help.extract_static.title, CPH_Help.extract_static.message)
-        self.param_handl_button_extract_single_help = self.HelpButton(CPH_Help.extract_single.title, CPH_Help.extract_single.message)
-        self.param_handl_button_extract_macro_help = self.HelpButton(CPH_Help.extract_macro.title, CPH_Help.extract_macro.message)
-        self.param_handl_button_extract_cached_help = self.HelpButton(CPH_Help.extract_cached.title, CPH_Help.extract_cached.message)
+        self.param_handl_button_extract_static_help = self.HelpButton(CPH_Help.extract_static.title, CPH_Help.extract_static.message, 'https://elespike.github.io/burp-cph/#quickstart/find_replace')
+        self.param_handl_button_extract_single_help = self.HelpButton(CPH_Help.extract_single.title, CPH_Help.extract_single.message, 'https://elespike.github.io/burp-cph/#quickstart/extract_single')
+        self.param_handl_button_extract_macro_help = self.HelpButton(CPH_Help.extract_macro.title, CPH_Help.extract_macro.message, 'https://elespike.github.io/burp-cph/#quickstart/extract_macro')
+        self.param_handl_button_extract_cached_help = self.HelpButton(CPH_Help.extract_cached.title, CPH_Help.extract_cached.message, 'https://elespike.github.io/burp-cph/#quickstart/extract_cached')
         self.param_handl_combo_cached = JComboBox()
         self.param_handl_combo_cached.addActionListener(self)
 
@@ -1279,6 +1278,8 @@ class ConfigTab(SubTab):
             if source.title:
                 source.show_help()
             else:
+                # The dynamic help button (placeholder_btn) has no title, so here we're using it
+                # to show the appropriate help message based on the selected combobox item.
                 extract_combo_selection = self.param_handl_combo_extract.getSelectedItem()
                 if extract_combo_selection == self.PARAM_HANDL_COMBO_EXTRACT_STATIC:
                     self.param_handl_button_extract_static_help.show_help()

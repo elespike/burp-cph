@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1" name="viewport">
@@ -11,7 +12,34 @@
     <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="style/home.css" />
 </head>
+
 <body>
+
+<script>
+function load_mainframe() {
+    if (window.location.hash.length > 1) {
+        page = window.location.hash.split('#')[1] + '.html';
+        $.ajax({
+            url:page,
+            type:'HEAD',
+            success: function() {
+                $('#mainframe').load(page);
+                prev_page = page;
+            },
+            error: function() {
+                window.location.hash = prev_page.replace('.html', '');
+            }
+        })
+    }
+    else {
+        $('#mainframe').load('main.html');
+    }
+}
+page = '';
+prev_page = '';
+window.onload = load_mainframe;
+window.onhashchange = load_mainframe;
+</script>
 
 <!-- Sidebar based on http://startbootstrap.com/template-overviews/simple-sidebar/ -->
 <div id="wrapper">
@@ -25,33 +53,33 @@
 
             <li class="node" data-toggle="collapse" data-target="#Installation">Installation</li>
             <div id="Installation" class="collapse in">
-                <li><a href="#" onclick="$('#mainframe').load('installation/bapp.html');">BApp Store</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('installation/manual.html');">Manually</a></li>
+                <li><a href="#installation/bapp">BApp Store</a></li>
+                <li><a href="#installation/manual">Manually</a></li>
             </div>
 
             <li class="node" data-toggle="collapse" data-target="#Quickstart">Quickstart</li>
             <div id="Quickstart" class="collapse in">
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/scope_burp.html');">Add to Scope</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/basic_find_replace.html');">Find &amp; Replace</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/enable_disable.html');">Enable/Disable Tabs</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/scope_cph.html');">Scope CPH Tab</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/indices.html');">Target Matches</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/replace_append.html');">Replace or Append</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('quickstart/tab_order.html');">Tab Order</a></li>
+                <li><a href="#quickstart/scope_burp">Add to Burp Suite's Scope</a></li>
+                <li><a href="#quickstart/find_replace">Find &amp; Replace</a></li>
+                <li><a href="#quickstart/enable_disable">Enable &amp; Disable CPH Tabs</a></li>
+                <li><a href="#quickstart/scope_cph">Scope CPH Tab</a></li>
+                <li><a href="#quickstart/indices">Target Specific Matches</a></li>
+                <li><a href="#quickstart/replace_append">Replace or Append</a></li>
+                <li><a href="#quickstart/tab_order">Tab Order</a></li>
             </div>
 
             <li class="node" data-toggle="collapse" data-target="#Advanced_Parameter_Handling">Advanced Parameter Handling</li>
             <div id="Advanced_Parameter_Handling" class="collapse in">
-                <li><a href="#" onclick="$('#mainframe').load('advanced/emv.html');">The Effective Modification Viewer</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('advanced/add_header.html');">Add a new HTTP Header</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('advanced/extract_single.html');">Extract from Other Response</a></li>
+                <li><a href="#advanced/emv">Effective Modification Viewer</a></li>
+                <li><a href="#advanced/extract_single">Extract from Other Response</a></li>
+                <li><a href="#advanced/add_header">Add a new HTTP Header</a></li>
             </div>
 
             <li class="node" data-toggle="collapse" data-target="#Expert_Parameter_Handling">Expert Parameter Handling</li>
             <div id="Expert_Parameter_Handling" class="collapse in">
-                <li><a href="#" onclick="$('#mainframe').load('expert/extract_cached.html');">Extract from Prior</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('expert/extract_macro.html');">Extract from Sequence</a></li>
-                <li><a href="#" onclick="$('#mainframe').load('expert/modify_macro.html');">Modify within Sequence</a></li>
+                <li><a href="#expert/extract_cached">Extract from Prior</a></li>
+                <li><a href="#expert/extract_macro">Extract from Sequence</a></li>
+                <li><a href="#expert/modify_macro">Modify within Sequence</a></li>
             </div>
 
         </ul>
@@ -79,28 +107,6 @@
     </script>
     <div id="page-content-wrapper">
         <div id="mainframe">
-
-            <div class="heading container-fluid">
-                <h1>Welcome to the Custom Parameter Handler Docs!<br/>
-                    <small class="desc">
-                        a Burp Suite extension by <a href="https://twitter.com/elespike">@elespike</a> and <a href="https://twitter.com/eth0up">@eth0up</a><br/>
-                    </small>
-                </h1>
-            </div>
-            <div class="container-fluid" style="height:70px"></div>
-            <div class="heading container-fluid">
-                <h2>
-                    Documentation is in the works!<br/>
-                    <small class="desc">We're currently working on CPH v2.0</small>
-                </h2>
-                <div class="desc container-fluid">
-                    Interested in trying the bleeding-edge version?
-                </div>
-                <a href="https://github.com/elespike/burp-cph/tree/elespike-develop">
-                    <button class="btn btn-default" style="margin:20px">Visit GitHub!</button>
-                </a>
-            </div>
-
         </div>
     </div>
 </div>

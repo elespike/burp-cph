@@ -8,9 +8,13 @@ font-family:Verdana, Geneva, sans-serif;
 font-size:12pt;
 }
 iframe{
-height: 90vh;
-width: 100%;
-border: none;
+height:90vh;
+width:100%;
+border:none;
+}
+img{
+border:4px solid #B3B3B3;
+border-radius:4px;
 }
 #menu-toggle, .nav, #sidebar-wrapper{
 position:fixed;
@@ -27,7 +31,7 @@ width:300px;
 .sidebar-nav, #page-content-wrapper, #wrapper.toggled #page-content-wrapper{
 position:absolute;
 }
-.content a, .desc a{
+.content a, .desc a, p > a{
 border-bottom-style:dotted;
 border-bottom-width:1px;
 }
@@ -40,7 +44,7 @@ a:hover, #menu-toggle, .heading, li.node{
 color:#142020;
 }
 .logo{
-width:100px;
+width:110px;
 }
 #menu-toggle{
 margin-top:2px;
