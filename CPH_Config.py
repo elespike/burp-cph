@@ -580,6 +580,8 @@ class OptionsTab(SubTab, ChangeListener):
             # Un-minimize
             self.emv.setState(JFrame.NORMAL)
             self.emv.toFront()
+            for emv_tab in self.emv_tab_pane.getComponents():
+                emv_tab.viewer.setDividerLocation(0.5)
 
         if c == self.BTN_EXPORTCONFIG:
             tabcount = 0
@@ -606,7 +608,6 @@ class OptionsTab(SubTab, ChangeListener):
 
     def load_config(self, replace_config_tabs):
         loaded_tab_names = [name for name in self.loaded_config]
-        tabcount = len(loaded_tab_names)
         tabs_to_remove = {}
 
         # Modify existing and mark for purge where applicable
@@ -619,7 +620,6 @@ class OptionsTab(SubTab, ChangeListener):
                 tabs_to_remove[tab] = False
             if tab not in tabs_to_remove:
                 tabs_to_remove[tab] = True
-                tabcount += 1
 
         # Import and purge if applicable
         for tab, tab_marked in tabs_to_remove.items():
@@ -628,20 +628,6 @@ class OptionsTab(SubTab, ChangeListener):
                 MainTab.mainpane.remove(tab)
         for tab_name in loaded_tab_names:
             self.set_tab_values(ConfigTab(self._cph), tab_name, self.loaded_config[tab_name])
-            tabcount += 1
-
-        # Restore tab order
-        if len(loaded_tab_names) > 1:
-            x = 0
-            for tab_name, tab in product(loaded_tab_names, MainTab.get_config_tabs()):
-                if tab_name == tab.namepane_txtfield.getText():
-                    MainTab.mainpane.setSelectedIndex(MainTab.mainpane.indexOfComponent(tab))
-                    for i in range(tabcount):
-                        ConfigTab.move_tab_back(tab)
-                    for i in range(x):
-                        ConfigTab.move_tab_fwd(tab)
-                    break
-                x += 1
 
         ConfigTab.disable_all_cache_viewers()
 
@@ -743,14 +729,14 @@ class EMVTab(JSplitPane, ListSelectionListener):
         self.setDividerLocation(100)
 
     def add_table_row(self, time, is_request, original_msg, modified_msg):
+        if len(self.table_model.rows) == 0:
+            self.viewer.setDividerLocation(0.5)
+
         message_type = 'Response'
         if is_request:
             message_type = 'Request'
         self.table_model.rows.insert(0, [str(time)[:-3], message_type, len(modified_msg) - len(original_msg)])
         self.table_model.messages.insert(0, self.table_model.MessagePair(original_msg, modified_msg))
-
-        if len(self.table_model.rows) == 1:
-            self.viewer.setDividerLocation(0.5)
 
         if len(self.table_model.rows) > self.MAX_ITEMS:
             self.table_model.rows.pop(-1)
@@ -1244,18 +1230,15 @@ class ConfigTab(SubTab):
         ConfigTab.move_tab(tab, desired_index)
 
     def clone_tab(self):
+        desired_index = MainTab.mainpane.getSelectedIndex() + 1
+
         newtab = ConfigTab(self._cph)
         MainTab.set_tab_name(newtab, self.namepane_txtfield.getText())
         config = MainTab.getOptionsTab().prepare_to_save_tab(self)
         MainTab.getOptionsTab().loaded_config = {self.namepane_txtfield.getText(): config}
         MainTab.getOptionsTab().load_config(False)
 
-        desired_index = MainTab.mainpane.getSelectedIndex() + 1
-        if desired_index < MainTab.mainpane.getTabCount() - 1:
-            MainTab.mainpane.setSelectedIndex(0)
-            MainTab.mainpane.add(newtab, desired_index)
-            MainTab.mainpane.setTabComponentAt(desired_index, newtab.tabtitle_pane)
-            MainTab.mainpane.setSelectedIndex(desired_index)
+        ConfigTab.move_tab(newtab, desired_index)
         MainTab.check_configtab_names()
 
     def disable_cache_viewers(self):

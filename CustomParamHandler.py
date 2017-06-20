@@ -240,11 +240,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
                     modified_request = self.modify_message(tab, req_as_string)
                     if req_as_string != modified_request:
-                        tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
-                        req_as_string = modified_request
                         if tab.param_handl_auto_encode_chkbox.isSelected():
                             # URL-encode the first line of the request, since it was modified
-                            first_req_line_old = req_as_string.split('\r\n')[0]
+                            first_req_line_old = modified_request.split('\r\n')[0]
                             self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
                             first_req_line_old = first_req_line_old.split(' ')
                             first_req_line_new = '{} {} {}'.format(
@@ -252,7 +250,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                                 ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
                                 first_req_line_old[-1])
                             self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
-                            req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
+                            modified_request = modified_request.replace(' '.join(first_req_line_old), first_req_line_new)
+                        tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
+                        req_as_string = modified_request
                         self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
                         req = self.helpers.stringToBytes(req_as_string)
 
