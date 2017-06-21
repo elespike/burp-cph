@@ -1,15 +1,20 @@
 ## Custom Parameter Handler extension for Burp Suite, allowing manipulation of parameters with surgical precision even (and especially) when using macros.
 
-#### The [quicksave and quickload](https://github.com/elespike/burp-cph/wiki/0.-Save-and-load-configuration) functionality persists through reloading not only the extension, but Burp Suite entirely. All values of each existing configuration tab will be saved, along with the order of all tabs.
+#### The quicksave and quickload functionality persists through reloading not only the extension, but Burp Suite entirely. All values of each existing configuration tab will be saved, along with the order of all tabs.
 
 ##### Use the Export/Import Config buttons to save/load your current configuration to/from a file.
 
-### Setting up Burp to use CPH (if you installed via BApp Store, steps 1 and 2 are not necessary)
+### Manual installation
 
-1. Copy all .py files to a desired directory (let's call it *my_dir*). Note that tinyweb.py is not required; it is simply a little Flask app for a quick and easy CPH demo setup.
-2. Under Extender > Options > Python Environment, configure Burp to use *my_dir* for loading modules.
-3. If not already specified, browse to your copy of Jython's standalone .jar file.
+1. Download and extract the latest release to a desired directory (let's call it *my_dir*).
+2. Under Extender > Options > Python Environment, point Burp to the location of your copy of Jython's standalone .jar file.
+3. Immediately underneath, configure Burp to use *my_dir* for loading modules.
 4. Finally, add CustomParamHandler.py in Extender > Extensions.
+
+### Installation from the BApp store
+
+1. Under Extender > Options > Python Environment, point Burp to the location of your copy of Jython's standalone .jar file.
+2. Find and select Custom Parameter Handler within the Extender > BApp Store tab, then click the Install button.
 
 ### Adding configuration tabs
 
@@ -28,17 +33,17 @@ New tabs are enabled by default but require a valid configuration in order to ha
 
 Leftmost tabs will be processed first; therefore, tab order may be important, especially when extracting values from cached responses.
 
-[Visit the wiki](https://github.com/elespike/burp-cph/wiki) for explanations on utilizing [cached responses](https://github.com/elespike/burp-cph/wiki/8.-Caching-messages-for-full-macro-modification).
+Visit our usage documentation for explanations on utilizing [cached responses](https://elespike.github.io/burp-cph/#expert/extract_cached).
 
 ### Tab configuration at a glance
 
-##### Request modification/caching scope
+##### Scoping
 Depending on the selected option, this tab will take action on either:
 - Requests only, Responses only, or both Requests and Responses; then either
   - All requests coming through Burp which are also in Burp's scope; or
   - Requests coming through Burp, in Burp's scope, and also matching the given expression.
 
-##### Parameter handling match options
+##### Parameter handling
 The supplied expression will be used to find the value that will either:
 - Be appended with the replacement value; or
 - Be entirely replaced with the replacement value.
@@ -46,15 +51,13 @@ The supplied expression will be used to find the value that will either:
 When utilizing RegEx, using a group will constrain the match to the group's contents.
 This strategy, therefore, increases match accuracy.
 
-The 'Match indices and/or slices' field controls which match(es) will be modified by the desired replacement value.
-Enter comma-separated, zero-based indices or slices (following Python's slice syntax).
-  E.g.: 1,3,6:9 would act on the 2nd, 4th, 7th, 8th and 9th matches.
+When targeting a subset of matches, enter comma-separated, zero-based indices or slices (following Python's slice syntax).
+  E.g.: `1,3,6:9` would act on the 2nd, 4th, 7th, 8th and 9th matches.
 
-##### Parameter handling replace options
 If not using a static value, the supplied expression will be used to find
 the desired replacement value.
 
 When utilizing RegEx, using a group will constrain the match to the group's contents.
 This strategy, therefore, increases match accuracy.
 
-### Please [visit the wiki](https://github.com/elespike/burp-cph/wiki) for explanations on the remaining options.
+### Please [visit our usage documentation](https://elespike.github.io/burp-cph/) for explanations on the remaining options.
