@@ -1,0 +1,31 @@
+<!--<div class="nav container-fluid">-->
+    <!--<a href="#top">Top</a>-->
+    <!--<a href="#example">Example</a>-->
+<!--</div>-->
+<div class="heading container-fluid" id="top">
+    <h1>Target Specific Matches<br/>
+        <small class="desc">when an expression is found multiple times in a message</small>
+    </h1>
+</div>
+<div class="content container-fluid">
+    <p>Available targeting options within <strong>step 2</strong> of the <em>Parameter handling</em> pane are:</p>
+    <ol>
+        <li>Target the <strong>first</strong> of the matches</li>
+        <li>Target <strong>each</strong> of the matches (i.e., all of them)</li>
+        <li>Target a specific <strong>subset</strong> of matches</li>
+    </ol>
+    <p>When targeting a subset of matches, <strong>indices</strong> and <strong>ranges</strong> can be used. E.g.:</p>
+    <ul>
+        <li>Target the 1st, 4th, 6th and 8th matches: <strong>0,3,5,7</strong></li>
+        <li>Target the first 7 matches but not the 8th match: <strong>0:7</strong></li>
+        <li>Target the first 7 matches and the 10th match: <strong>0:7,9</strong></li>
+        <li>Target the last and penultimate matches: <strong>-1,-2</strong></li>
+        <li>Target all but the last match: <strong>0:-1</strong></li>
+    </ul>
+</div>
+<div class="heading container-fluid" id="example">
+    <h3>Example</h3>
+</div>
+<div class="content container-fluid">
+    <img class="img-responsive" src="/images/indices.gif"/>
+</div>

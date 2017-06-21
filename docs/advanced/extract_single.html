@@ -1,0 +1,43 @@
+<div class="nav container-fluid">
+    <a href="#top">Top</a>
+    <a href="#example1">Configuration</a>
+    <a href="#example2">Execution</a>
+</div>
+<div class="heading container-fluid" id="top">
+    <h1>Extract from Other Response<br/>
+        <small class="desc">Acquire a value from the response of another HTTP request</small>
+    </h1>
+</div>
+<div class="content container-fluid">
+    <p>CPH can acquire replacement values from other HTTP responses by issuing a configured request prior to modifying the current HTTP message.</p>
+    <p>Consider, for example, a mechanism similar to some anti-CSRF tokens:</p>
+    <ol>
+        <li>Client requests page</li>
+        <li>Server responds with page + unique value</li>
+        <li>Client must submit its next request with that unique value</li>
+    </ol>
+    <br/>
+    <p>To acquire a value from the response of another HTTP request:</p>
+    <ol>
+        <li>Either...</li>
+        <ul>
+            <li>Find the desired HTTP request in Burp Suite, give it a right-click, and choose <strong>Send to CPH</strong>; or</li>
+            <li>Select the appropriate drop-down option in <strong>step 3</strong> within the <em>Parameter handling</em> pane and paste a raw HTTP request in the left pane.</li>
+        </ul>
+        <li>Use the <strong>Issue</strong> button to confirm that the configured HTTP request will yield the desired response;</li>
+        <li>Configure an appropriate regular expression to extract the desired value from that response.</li>
+    </ol>
+    <p>Subsequent requests within scope and containing targeted matches will cause CPH to automatically issue the tab's configured request in order to extract the modification value from its response.</p>
+</div>
+<div class="heading container-fluid" id="example1">
+    <h3>Initial Configuration</h3>
+</div>
+<div class="content container-fluid">
+    <img class="img-responsive" src="/images/extract_single1.gif"/>
+</div>
+<div class="heading container-fluid" id="example2">
+    <h3>RegEx Setup and Execution</h3>
+</div>
+<div class="content container-fluid">
+    <img class="img-responsive" src="/images/extract_single2.gif"/>
+</div>
