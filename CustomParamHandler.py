@@ -15,6 +15,8 @@ from logging import (
 from re import (
     compile          ,
     error as re_error,
+    findall          ,
+    finditer         ,
     search           ,
     sub              ,
 )
@@ -369,30 +371,30 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
 
         original_msg = msg_as_string
-        match_value = ph_field_matchtarget_txt
-        self.logger.debug('Initial match value: {}'.format(match_value))
+
+        if not ph_field_matchtarget_txt:
+            self.logger.warning('No match expression specified! Skipping tab "{}".'.format(
+                tab.namepane_txtfield.getText()))
+            return original_msg
+
+        match_values = list()
+        for i in range(original_msg.count(ph_field_matchtarget_txt)):
+            match_values.append(ph_field_matchtarget_txt)
 
         exc_search_for_exp = 'Error searching for expression {}. Details below:'
         if ph_checkbox_matchtarget_regex:
-            match = None
             try:
-                match = search(ph_field_matchtarget_txt, msg_as_string)
+                match_values = findall(ph_field_matchtarget_txt, original_msg)
             except re_error:
                 self.logger.exception(exc_search_for_exp.format(
                     ph_field_matchtarget_txt))
-            if match:
-                match_value = match.group(0)
-                if match.groups():
-                    match_value = match.group(1)
-            self.logger.debug('Extracted match value using this expression: {}'.format(
+            # In case multiple groups were specified, use only the first group
+            for i, match_value in enumerate(list(match_values)):
+                if type(match_value) == tuple:
+                    match_values[i] = match_value[0]
+            self.logger.debug('Extracted match values using this expression: {}'.format(
                 ph_field_matchtarget_txt))
-            self.logger.debug('Match value is now: {}'.format(match_value))
-        self.logger.debug('Final match value: {}'.format(match_value))
-
-        if not match_value:
-            self.logger.warning('No match found! Skipping tab "{}".'.format(
-                tab.namepane_txtfield.getText()))
-            return original_msg
+        self.logger.debug('Final match values: {}'.format(match_values))
 
         replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
         self.logger.debug('Initial replace value: {}'.format(replace_value))
@@ -450,12 +452,14 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     ph_field_extract_macro_txt))
 
         self.logger.debug('Final replace value: {}'.format(replace_value))
-        self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
+        self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(set(match_values), replace_value))
 
-        match_count = original_msg.count(match_value)
+        match_count = 0
+        for match_value in set(match_values):
+            match_count += original_msg.count(match_value)
         if not match_count:
-            self.logger.warning('No match found for "{}"! Skipping tab "{}".'.format(
-                match_value, tab.namepane_txtfield.getText()))
+            self.logger.warning('No match found for any of "{}"! Skipping tab "{}".'.format(
+                match_values, tab.namepane_txtfield.getText()))
             return original_msg
 
         subset = ph_field_matchnum_txt.replace(' ', '').split(',')
@@ -483,37 +487,42 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 continue
 
         self.logger.debug('Unfiltered match indices: {}'.format(match_indices))
-        match_indices = sorted([m for m in match_indices if m < match_count])
+        match_indices = set(sorted([m for m in match_indices if m < match_count]))
         self.logger.debug('Filtered match indices: {}'.format(match_indices))
 
-        modification_count = 0
+        if not match_indices:
+            self.logger.warning('No matches found at any specified indices!')
+
+        substr_indices = list()
+        for match_value in match_values:
+            substr_indices.extend([m.start() for m in finditer(match_value, original_msg)])
+        substr_indices = sorted(set(substr_indices))
+
+        global_mod_count = 0
+        modifications = {}
         for match_index in match_indices:
-            num = -1
-            substr_index = -1
-            try:
-                while num < match_index:
-                    substr_index = original_msg.index(match_value, substr_index + 1)
-                    num += 1
-            except ValueError:
-                self.logger.exception('This should never have happened! Check the filtering mechanism.\n\t'
-                          + 'Current tab: {}'.format(tab.namepane_txtfield.getText()))
-                continue
-            substr_index += (len(replace_value) - len(match_value)) * modification_count
+            match_value = match_values[match_index]
+            substr_index = substr_indices[match_index]
+            for value_modified, times_modified in modifications.items():
+                substr_index += (len(replace_value) - len(value_modified)) * times_modified
             if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
-                insert_at = substr_index + (len(match_value) * (modification_count + 1))
+                insert_at = substr_index + len(match_value) + (len(match_value) * global_mod_count)
                 msg_as_string = msg_as_string[:insert_at] \
                                 + replace_value           \
                                 + msg_as_string[insert_at:]
-                modification_count += 1
-                self.logger.info('Match index [{}]: inserted "{}" after "{}"'.format(
+                self.logger.info('Match index [{}]: appended "{}" to "{}"'.format(
                     match_index, replace_value, match_value))
             elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
                 msg_as_string = msg_as_string[:substr_index] \
                                 + replace_value              \
                                 + msg_as_string[substr_index + len(match_value):]
-                modification_count += 1
                 self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
                     match_index, match_value, replace_value))
+            global_mod_count += 1
+            if match_value in modifications:
+                modifications[match_value] += 1
+            else:
+                modifications[match_value] = 1
 
         return msg_as_string
 
