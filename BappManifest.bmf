@@ -2,7 +2,7 @@ Uuid: a0c0cd68ab7c4928b3bf0a9ad48ec8c7
 ExtensionType: 2
 Name: Custom Parameter Handler
 RepoName: custom-parameter-handler
-ScreenVersion: 1.0
+ScreenVersion: 2.0
 SerialVersion: 1
 MinPlatformVersion: 0
 ProOnly: False
