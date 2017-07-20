@@ -11,7 +11,7 @@ cph_main   = open('../CustomParamHandler.py', 'r')
 def write_imports(opened_file):
     line = opened_file.readline()
     while line:
-        if line.strip() == 'from CPH_Config import MainTab' \
+        if line.strip() == 'from CPH_Config  import MainTab' \
         or line.strip() == 'from CPH_Help import CPH_Help':
             line = opened_file.readline()
             continue
