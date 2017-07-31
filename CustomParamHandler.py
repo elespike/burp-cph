@@ -2,15 +2,31 @@
 #  Begin CustomParameterHandler.py Imports
 ########################################################################################################################
 
-import re
-from logging import DEBUG, ERROR, INFO, WARNING, debug, error, exception, info, warning, basicConfig, getLogger
-from sys import stdout
+from datetime import datetime as dt
+from sys      import stdout
+from urllib   import quote
 
-from CPH_Config import MainTab
-from burp import IBurpExtender
-from burp import IHttpListener
-from burp import ISessionHandlingAction
-from burp import IContextMenuFactory
+from logging import (
+    Formatter    ,
+    INFO         ,
+    StreamHandler,
+    getLogger    ,
+)
+from re import (
+    compile          ,
+    error as re_error,
+    findall          ,
+    finditer         ,
+    search           ,
+    sub              ,
+)
+
+from CPH_Config  import MainTab
+from burp        import IBurpExtender
+from burp        import IContextMenuFactory
+from burp        import IExtensionStateListener
+from burp        import IHttpListener
+from burp        import ISessionHandlingAction
 from javax.swing import JMenuItem
 
 ########################################################################################################################
@@ -21,43 +37,35 @@ from javax.swing import JMenuItem
 #  Begin CustomParameterHandler.py
 ########################################################################################################################
 
-class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContextMenuFactory):
+class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
         self._hostheader = 'Host: '
-        basicConfig(
-            level=INFO,
-            format='\r\n%(asctime)s:%(msecs)03d %(levelname)s: %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S',
-            stream=stdout)
         self.messages_to_send = []
         self.final_macro_resp = ''
 
-    @staticmethod
-    def set_logging_level(level):
-        getLogger().setLevel(level)
+        self.logger = getLogger(__name__)
+        self.initialize_logger()
 
-    @staticmethod
-    def issue_log_message(message, level, print_trace=False):
-        if level == DEBUG:
-            debug(message)
-        if level == ERROR:
-            if print_trace:
-                exception(message)
-            else:
-                error(message)
-        if level == INFO:
-            info(message)
-        if level == WARNING:
-            warning(message)
+    def initialize_logger(self):
+        fmt='%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
+        datefmt='%H:%M:%S'
+        formatter = Formatter(fmt=fmt, datefmt=datefmt)
+
+        handler = StreamHandler(stream=stdout)
+        handler.setFormatter(formatter)
+
+        self.logger.addHandler(handler)
+        self.logger.setLevel(INFO)
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
         self.helpers = callbacks.getHelpers()
         self.maintab = MainTab(self)
         callbacks.setExtensionName('Custom Parameter Handler')
+        callbacks.registerContextMenuFactory(self)
+        callbacks.registerExtensionStateListener(self)
         callbacks.registerHttpListener(self)
         callbacks.registerSessionHandlingAction(self)
-        callbacks.registerContextMenuFactory(self)
         callbacks.addSuiteTab(self.maintab)
 
     def getActionName(self):
@@ -65,17 +73,17 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
 
     def performAction(self, currentRequest, macroItems):
         if not macroItems:
-            error('No macro found, or macro is empty!')
+            self.logger.error('No macro found, or macro is empty!')
             return
         self.final_macro_resp = self.helpers.bytesToString(macroItems[-1].getResponse())
 
     def createMenuItems(self, invocation):
         context = invocation.getInvocationContext()
         if context == invocation.CONTEXT_MESSAGE_EDITOR_REQUEST \
-                or context == invocation.CONTEXT_MESSAGE_VIEWER_REQUEST \
-                or context == invocation.CONTEXT_PROXY_HISTORY \
-                or context == invocation.CONTEXT_TARGET_SITE_MAP_TABLE \
-                or context == invocation.CONTEXT_SEARCH_RESULTS:
+        or context == invocation.CONTEXT_MESSAGE_VIEWER_REQUEST \
+        or context == invocation.CONTEXT_PROXY_HISTORY          \
+        or context == invocation.CONTEXT_TARGET_SITE_MAP_TABLE  \
+        or context == invocation.CONTEXT_SEARCH_RESULTS:
             self.messages_to_send = invocation.getSelectedMessages()
             if len(self.messages_to_send):
                 return [JMenuItem('Send to CPH', actionPerformed=self.send_to_cph)]
@@ -85,6 +93,26 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
     def send_to_cph(self, e):
         self.maintab.add_config_tab(self.messages_to_send)
 
+    def extensionUnloaded(self):
+        try:
+            while self.maintab.options_tab.emv_tab_pane.getTabCount():
+                self.maintab.options_tab.emv_tab_pane.remove(
+                    self.maintab.options_tab.emv_tab_pane.getTabCount() - 1
+                )
+            self.maintab.options_tab.emv.dispose()
+        except AttributeError:
+            self.logger.warning('Effective Modification Viewer not found! You may be using an outdated version of CPH!')
+
+        while self.maintab.mainpane.getTabCount():
+            # For some reason, the last tab isn't removed until the next loop,
+            # hence the try/except block with just a continue. Thx, Java.
+            try:
+                self.maintab.mainpane.remove(
+                    self.maintab.mainpane.getTabCount() - 1
+                )
+            except:
+                continue
+
     @staticmethod
     def split_host_port(host_and_port):
         split_index = host_and_port.index(':')
@@ -93,7 +121,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             port = int(host_and_port[split_index + 1:])
             return host, port
         except ValueError:
-            exception('Invalid port value detected; reverting to port 80. Details below:')
+            self.logger.exception('Invalid port value detected; reverting to port 80. Details below:')
             return host, 80
 
     def issue_request(self, tab):
@@ -105,7 +133,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         # Update host header
         host = ''
         port = 80
-        https = tab.https_chkbox.isSelected()
+        https = tab.param_handl_https_chkbox.isSelected()
         if https:
             port = 443
         for header in headers:
@@ -113,47 +141,47 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                 host = header.replace(self._hostheader, '')
                 if ':' in host:
                     host, port = self.split_host_port(host)
-        debug('Host is: {}'.format(host))
+        self.logger.debug('Host is: {}'.format(host))
 
         # Update cookies
-        if tab.update_cookies_chkbox.isSelected():
+        if tab.param_handl_update_cookies_chkbox.isSelected():
             cookies = self.callbacks.getCookieJarContents()
             for cookie in cookies:
                 cdom = cookie.getDomain()
                 if host not in cdom:
                     continue
-                debug('Cookie domain is: {}'.format(cdom))
+                self.logger.debug('Cookie domain is: {}'.format(cdom))
                 cname = cookie.getName()
                 for header in headers:
                     if header.startswith('Cookie: '):
-                        debug('Cookie header from derivation request:\r\n{}'.format(header))
+                        self.logger.debug('Cookie header from derivation request:\n{}'.format(header))
                         if not header.endswith(';'):
                             header += ';'
-                        match = re.search(r'[ ;]' + cname + r'=.+?[;\r]', header)
+                        match = search(r'[ ;]' + cname + r'=.+?[;\r]', header)
                         if match:
-                            debug('Cookie found in derivation request headers: {}'.format(cname))
+                            self.logger.debug('Cookie found in derivation request headers: {}'.format(cname))
                             cvalue = cookie.getValue()
-                            debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
+                            self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
                             if cvalue:
-                                exp = re.compile('({}=).+?([;\r])'.format(cname))
+                                exp = compile('({}=).+?([;\r])'.format(cname))
                                 req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
                                 tab.request = self.helpers.stringToBytes(req_as_string)
                                 tab.param_handl_request_editor.setMessage(tab.request, True)
-                                info('Cookie updated on tab "{}": {}={}'.format(
+                                self.logger.info('Cookie updated on tab "{}": {}={}'.format(
                                     tab.namepane_txtfield.getText(), cname, cvalue))
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
             resp = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
-            debug('Issued configured request from tab "{}" to host "{}"'.format(
+            self.logger.debug('Issued configured request from tab "{}" to host "{}"'.format(
                 tab.namepane_txtfield.getText(), httpsvc.getHost()))
             if resp:
                 tab.param_handl_response_editor.setMessage(resp, False)
                 tab.response = resp
-                debug('Got response!')
+                self.logger.debug('Got response!')
         # Generic except because misc. Java exceptions might occur.
         except:
-            exception('Error issuing configured request from tab "{}" to host "{}"'.format(
+            self.logger.exception('Error issuing configured request from tab "{}" to host "{}"'.format(
                 tab.namepane_txtfield.getText(), host))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
@@ -162,38 +190,38 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
         dbg_skip_tool = 'Skipping message received from {} on account of global tool scope options.'
         if toolFlag == self.callbacks.TOOL_PROXY:
             if not self.maintab.options_tab.chkbox_proxy.isSelected():
-                debug(dbg_skip_tool.format('Proxy'))
+                self.logger.debug(dbg_skip_tool.format('Proxy'))
                 return
         elif toolFlag == self.callbacks.TOOL_TARGET:
             if not self.maintab.options_tab.chkbox_target.isSelected():
-                debug(dbg_skip_tool.format('Target'))
+                self.logger.debug(dbg_skip_tool.format('Target'))
                 return
         elif toolFlag == self.callbacks.TOOL_SPIDER:
             if not self.maintab.options_tab.chkbox_spider.isSelected():
-                debug(dbg_skip_tool.format('Spider'))
+                self.logger.debug(dbg_skip_tool.format('Spider'))
                 return
         elif toolFlag == self.callbacks.TOOL_REPEATER:
             if not self.maintab.options_tab.chkbox_repeater.isSelected():
-                debug(dbg_skip_tool.format('Repeater'))
+                self.logger.debug(dbg_skip_tool.format('Repeater'))
                 return
         elif toolFlag == self.callbacks.TOOL_SEQUENCER:
             if not self.maintab.options_tab.chkbox_sequencer.isSelected():
-                debug(dbg_skip_tool.format('Sequencer'))
+                self.logger.debug(dbg_skip_tool.format('Sequencer'))
                 return
         elif toolFlag == self.callbacks.TOOL_INTRUDER:
             if not self.maintab.options_tab.chkbox_intruder.isSelected():
-                debug(dbg_skip_tool.format('Intruder'))
+                self.logger.debug(dbg_skip_tool.format('Intruder'))
                 return
         elif toolFlag == self.callbacks.TOOL_SCANNER:
             if not self.maintab.options_tab.chkbox_scanner.isSelected():
-                debug(dbg_skip_tool.format('Scanner'))
+                self.logger.debug(dbg_skip_tool.format('Scanner'))
                 return
         elif toolFlag == self.callbacks.TOOL_EXTENDER:
             if not self.maintab.options_tab.chkbox_extender.isSelected():
-                debug(dbg_skip_tool.format('Extender'))
+                self.logger.debug(dbg_skip_tool.format('Extender'))
                 return
         else:
-            debug('Skipping message received from unsupported Burp tool.')
+            self.logger.debug('Skipping message received from unsupported Burp tool.')
             return
 
         requestinfo = self.helpers.analyzeRequest(messageInfo)
@@ -209,26 +237,30 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
             for tab in self.maintab.get_config_tabs():
                 if req == tab.request:
                     continue
-                if tab.tabtitle.enable_chkbox.isSelected() and \
-                        self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
-                    info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    req_as_string = self.modify_message(tab, req_as_string)
-                    # URL-encode the first line of the request in case it was modified
-                    first_req_line_old = req_as_string.split('\r\n')[0].split(' ')
-                    debug('first_req_line_old is:\r\n{}'.format(' '.join(first_req_line_old)))
-                    first_req_line_new = '{} {} {}'.format(
-                        first_req_line_old[0],
-                        ''.join([self.helpers.urlEncode(char) if char!= '%' else char
-                                 for char in '+'.join(first_req_line_old[1:-1])]),
-                        first_req_line_old[-1])
-                    debug('first_req_line_new is:\r\n{}'.format(first_req_line_new))
-                    req_as_string = req_as_string.replace(' '.join(first_req_line_old), first_req_line_new)
-                    debug('Actual first line of request is:\r\n{}'.format(req_as_string.split('\r\n')[0]))
-                    req = self.helpers.stringToBytes(req_as_string)
+                if tab.tabtitle_pane.enable_chkbox.isSelected() \
+                and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
+                    self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    modified_request = self.modify_message(tab, req_as_string)
+                    if req_as_string != modified_request:
+                        if tab.param_handl_auto_encode_chkbox.isSelected():
+                            # URL-encode the first line of the request, since it was modified
+                            first_req_line_old = modified_request.split('\r\n')[0]
+                            self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
+                            first_req_line_old = first_req_line_old.split(' ')
+                            first_req_line_new = '{} {} {}'.format(
+                                first_req_line_old[0],
+                                ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
+                                first_req_line_old[-1])
+                            self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
+                            modified_request = modified_request.replace(' '.join(first_req_line_old), first_req_line_new)
+                        tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
+                        req_as_string = modified_request
+                        self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
+                        req = self.helpers.stringToBytes(req_as_string)
 
             requestinfo = self.helpers.analyzeRequest(req)
             content_length = len(req) - requestinfo.getBodyOffset()
-            req_as_string = re.sub(content_length_pattern,
+            req_as_string = sub(content_length_pattern,
                                    content_length_repl.format(content_length),
                                    req_as_string,
                                    1)
@@ -247,199 +279,192 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     messageInfo.setHttpService(self.helpers.buildHttpService(
                         host, port, httpsvc.getProtocol()))
                     break
-            debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
-
-            for tab in self.maintab.get_config_tabs():
-                debug(
-                    'set_cache is {}, working on request for tab {}'.format(set_cache, tab.namepane_txtfield.getText()))
-                if set_cache:
-                    tab.param_handl_cached_req_viewer.setMessage(req, False)
-                    debug('Cached request viewer updated for tab {}!'.format(tab.namepane_txtfield.getText()))
-                if self.is_in_cph_scope(req_as_string, messageIsRequest, tab, True):
-                    tab.cached_request = req
-                    set_cache = True
-                    debug('Cached request set for tab {}!'.format(tab.namepane_txtfield.getText()))
-                else:
-                    set_cache = False
+            self.logger.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
         if not messageIsRequest:
             resp = messageInfo.getResponse()
             resp_as_string = self.helpers.bytesToString(resp)
             for tab in self.maintab.get_config_tabs():
-                if tab.tabtitle.enable_chkbox.isSelected() and \
-                        self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
-                    info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    resp_as_string = self.modify_message(tab, resp_as_string)
+                if tab.tabtitle_pane.enable_chkbox.isSelected() \
+                and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
+                    self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    modified_response = self.modify_message(tab, resp_as_string)
+                    if resp_as_string != modified_response:
+                        tab.emv_tab.add_table_row(dt.now().time(), False, resp_as_string, modified_response)
+                        resp_as_string = modified_response
                     resp = self.helpers.stringToBytes(resp_as_string)
 
             responseinfo = self.helpers.analyzeResponse(resp)
             content_length = len(resp) - responseinfo.getBodyOffset()
-            resp_as_string = re.sub(content_length_pattern,
+            resp_as_string = sub(content_length_pattern,
                                     content_length_repl.format(content_length),
                                     resp_as_string,
                                     1)
             resp = self.helpers.stringToBytes(resp_as_string)
             messageInfo.setResponse(resp)
 
-            for tab in self.maintab.get_config_tabs():
-                debug('set_cache is {}, working on response for tab {}'.format(set_cache,
-                                                                               tab.namepane_txtfield.getText()))
-                if set_cache:
-                    tab.param_handl_cached_resp_viewer.setMessage(resp, False)
-                    if not tab.param_handl_radio_extract_cached.isEnabled():
-                        tab.param_handl_radio_extract_cached.setEnabled(True)
-                    debug('Cached response viewer updated, radio enabled for tab {}!'.format(
-                        tab.namepane_txtfield.getText()))
-                if self.is_in_cph_scope(req_as_string, True, tab, True):
-                    tab.cached_response = resp
-                    set_cache = True
-                    debug('Cached response set for tab {}!'.format(tab.namepane_txtfield.getText()))
-                else:
-                    set_cache = False
+            for working_tab in self.maintab.get_config_tabs():
+                selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
+                working_tab.param_handl_combo_cached.removeAllItems()
+                if self.is_in_cph_scope(req_as_string, True, working_tab) or self.is_in_cph_scope(resp_as_string, False, working_tab):
+                    working_tab.cached_request  = req
+                    working_tab.cached_response = resp
+                    self.logger.debug('Messages cached for tab {}!'.format(working_tab.namepane_txtfield.getText()))
+                for previous_tab in self.maintab.get_config_tabs():
+                    if working_tab == previous_tab:
+                        break
+                    if previous_tab.cached_request is None or previous_tab.cached_response is None:
+                        continue
+                    empty_req, empty_resp = previous_tab.initialize_req_resp()
+                    if previous_tab.cached_request == empty_req or previous_tab.cached_response == empty_resp:
+                        continue
+                    item = previous_tab.namepane_txtfield.getText()
+                    working_tab.param_handl_combo_cached.addItem(item)
+                    if item == selected_item:
+                        working_tab.param_handl_combo_cached.setSelectedItem(item)
 
-    @staticmethod
-    def is_in_cph_scope(msg_as_string, is_request, tab, caching=False):
-        rms_radio_type_requests_selected = tab.msg_mod_radio_req.isSelected()
-        rms_radio_type_responses_selected = tab.msg_mod_radio_resp.isSelected()
-        rms_radio_type_both_selected = tab.msg_mod_radio_both.isSelected()
-        rms_radio_modifyall_selected = tab.msg_mod_radio_all.isSelected()
-        rms_radio_modifymatch_selected = tab.msg_mod_radio_exp.isSelected()
-        rms_field_modifymatch_txt, \
-        rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
+    def is_in_cph_scope(self, msg_as_string, is_request, tab):
+        rms_scope_all  = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_ALL
+        rms_scope_some = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_SOME
 
-        if not caching:
-            if is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected):
-                debug('is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected): {}'.format(
-                    is_request and (rms_radio_type_requests_selected or rms_radio_type_both_selected)))
-            elif not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected):
-                debug(
-                    'not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected): {}'.format(
-                        not is_request and (rms_radio_type_responses_selected or rms_radio_type_both_selected)))
-            else:
-                debug('Returning False from is_in_cph_scope')
-                return False
+        rms_type_requests  = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_REQ
+        rms_type_responses = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_RESP
+        rms_type_both      = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_BOTH
 
-        if rms_radio_modifyall_selected:
+        rms_field_modifymatch_txt, rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
+
+        self.logger.debug('is_request: {}'.format(is_request))
+        self.logger.debug('rms_type_requests: {}'.format(rms_type_requests))
+        self.logger.debug('rms_type_responses: {}'.format(rms_type_responses))
+        self.logger.debug('rms_type_both: {}'.format(rms_type_both))
+
+        if is_request and (rms_type_requests or rms_type_both):
+            pass
+        elif not is_request and (rms_type_responses or rms_type_both):
+            pass
+        else:
+            self.logger.debug('Preliminary scope check negative!')
+            return False
+
+        if rms_scope_all:
             return True
-        elif rms_radio_modifymatch_selected and rms_field_modifymatch_txt:
+        elif rms_scope_some and rms_field_modifymatch_txt:
             if rms_checkbox_modifymatch_regex:
-                regexp = re.compile(rms_field_modifymatch_txt)
+                regexp = compile(rms_field_modifymatch_txt)
                 if regexp.search(msg_as_string):
                     return True
             else:
                 if rms_field_modifymatch_txt in msg_as_string:
                     return True
         else:
-            warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
+            self.logger.warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
         return False
 
     def modify_message(self, tab, msg_as_string):
-        ph_radio_insert_selected = tab.param_handl_radio_insert.isSelected()
-        ph_radio_replace_selected = tab.param_handl_radio_replace.isSelected()
-        ph_field_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
-        ph_field_matchtarget_txt, \
-        ph_checkbox_matchtarget_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_target)
-        ph_field_staticvalue_txt = tab.param_handl_txtfield_static_value.getText()
-        ph_radio_extract_cached_selected = tab.param_handl_radio_extract_cached.isSelected()
-        ph_radio_extract_single_selected = tab.param_handl_radio_extract_single.isSelected()
-        ph_radio_extract_macro_selected = tab.param_handl_radio_extract_macro.isSelected()
-        ph_field_extract_cached_txt, \
-        ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
-        ph_field_extract_single_txt, \
-        ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
-        ph_field_extract_macro_txt, \
-        ph_checkbox_extract_macro_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro)
+        ph_field_matchnum_txt    = tab.param_handl_txtfield_match_indices .getText()
+        ph_field_staticvalue_txt = tab.param_handl_txtfield_extract_static.getText()
+
+        ph_field_matchtarget_txt   , ph_checkbox_matchtarget_regex    = tab.get_exp_pane_values(tab.param_handl_exp_pane_target        )
+        ph_field_extract_cached_txt, ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
+        ph_field_extract_single_txt, ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
+        ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
+
         original_msg = msg_as_string
-        match_value = ph_field_matchtarget_txt
-        debug('Initial match value: {}'.format(match_value))
 
-        exc_search_for_exp = 'Error searching for expression {}. Details below:'
-        if ph_checkbox_matchtarget_regex:
-            match = None
-            try:
-                match = re.search(ph_field_matchtarget_txt, msg_as_string)
-            except re.error:
-                exception(exc_search_for_exp.format(
-                    ph_field_matchtarget_txt))
-            if match:
-                match_value = match.group(0)
-                if match.groups():
-                    match_value = match.group(1)
-            debug('Extracted match value using this expression: {}'.format(
-                ph_field_matchtarget_txt))
-            debug('Match value is now: {}'.format(match_value))
-        debug('Final match value: {}'.format(match_value))
-
-        if not match_value:
-            warning('No match found! Skipping tab "{}".'.format(
+        if not ph_field_matchtarget_txt:
+            self.logger.warning('No match expression specified! Skipping tab "{}".'.format(
                 tab.namepane_txtfield.getText()))
             return original_msg
 
+        match_values = list()
+        for i in range(original_msg.count(ph_field_matchtarget_txt)):
+            match_values.append(ph_field_matchtarget_txt)
+
+        exc_search_for_exp = 'Error searching for expression {}. Details below:'
+        if ph_checkbox_matchtarget_regex:
+            try:
+                match_values = findall(ph_field_matchtarget_txt, original_msg)
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(
+                    ph_field_matchtarget_txt))
+            # In case multiple groups were specified, use only the first group
+            for i, match_value in enumerate(list(match_values)):
+                if type(match_value) == tuple:
+                    match_values[i] = match_value[0]
+            self.logger.debug('Extracted match values using this expression: {}'.format(
+                ph_field_matchtarget_txt))
+        self.logger.debug('Final match values: {}'.format(match_values))
+
         replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
-        debug('Initial replace value: {}'.format(replace_value))
+        self.logger.debug('Initial replace value: {}'.format(replace_value))
 
         match = None
         dbg_extracted_repl = 'Extracted replace value using this expression: {}'
         dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
         dbg_new_repl_val = 'Replace value is now: {}'
-        if ph_radio_extract_cached_selected:
+        if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
             try:
-                match = re.search(ph_field_extract_cached_txt,
+                match = search(ph_field_extract_cached_txt,
                                   self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage()))
-            except re.error:
-                exception(exc_search_for_exp.format(
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(
                     ph_field_extract_cached_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
-                debug(dbg_new_repl_val.format(replace_value))
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
+                self.logger.debug(dbg_new_repl_val.format(replace_value))
             else:
-                debug(dbg_extract_repl_fail.format(
+                self.logger.debug(dbg_extract_repl_fail.format(
                     ph_field_extract_cached_txt))
-        elif ph_radio_extract_single_selected:
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
             try:
                 self.issue_request(tab)
-                match = re.search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
-            except re.error:
-                exception(exc_search_for_exp.format(
+                match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(
                     ph_field_extract_single_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                debug(dbg_new_repl_val.format(replace_value))
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
+                self.logger.debug(dbg_new_repl_val.format(replace_value))
             else:
-                debug(dbg_extract_repl_fail.format(
+                self.logger.debug(dbg_extract_repl_fail.format(
                     ph_field_extract_single_txt))
-        elif ph_radio_extract_macro_selected:
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
             try:
-                match = re.search(ph_field_extract_macro_txt, self.final_macro_resp)
-            except re.error:
-                exception(exc_search_for_exp.format(
+                match = search(ph_field_extract_macro_txt, self.final_macro_resp)
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(
                     ph_field_extract_macro_txt))
             if match:
                 replace_value = match.group(0)
                 if match.groups():
                     replace_value = match.group(1)
-                debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
-                debug(dbg_new_repl_val.format(replace_value))
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
+                self.logger.debug(dbg_new_repl_val.format(replace_value))
             else:
-                debug(dbg_extract_repl_fail.format(
+                self.logger.debug(dbg_extract_repl_fail.format(
                     ph_field_extract_macro_txt))
 
-        debug('Final replace value: {}'.format(replace_value))
-        debug('Searching for "{}", inserting/replacing "{}"'.format(match_value, replace_value))
+        self.logger.debug('Final replace value: {}'.format(replace_value))
+        self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(set(match_values), replace_value))
 
-        match_count = original_msg.count(match_value)
-        match_indices = ph_field_matchnum_txt.replace(' ', '').split(',')
-        len_match_indices = len(match_indices)
-        for i, v in enumerate(match_indices):
-            if i == len_match_indices:
-                break
+        match_count = 0
+        for match_value in set(match_values):
+            match_count += original_msg.count(match_value)
+        if not match_count:
+            self.logger.warning('No match found for any of "{}"! Skipping tab "{}".'.format(
+                match_values, tab.namepane_txtfield.getText()))
+            return original_msg
+
+        subset = ph_field_matchnum_txt.replace(' ', '').split(',')
+        match_indices = []
+        for i, v in enumerate(subset):
             try:
                 if ':' in v:
                     sliceindex = v.index(':')
@@ -450,60 +475,58 @@ class BurpExtender(IBurpExtender, IHttpListener, ISessionHandlingAction, IContex
                     if end < 0:
                         end = match_count + end
                     for match_index in range(start, end):
-                        if match_index == start:
-                            match_indices[i] = match_index
-                        else:
-                            match_indices.append(match_index)
+                        match_indices.append(match_index)
                 else:
                     match_index = int(v)
                     if match_index < 0:
                         match_index = match_count + match_index
-                    match_indices[i] = match_index
+                    match_indices.append(match_index)
             except ValueError:
-                exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
+                self.logger.exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
                     tab.namepane_txtfield.getText()))
                 continue
 
-        debug('Unfiltered match indices: {}'.format(match_indices))
-        match_indices = sorted([m for m in match_indices if m < match_count])
-        debug('Filtered match indices: {}'.format(match_indices))
+        self.logger.debug('Unfiltered match indices: {}'.format(match_indices))
+        match_indices = set(sorted([m for m in match_indices if m < match_count]))
+        self.logger.debug('Filtered match indices: {}'.format(match_indices))
 
-        modification_count = 0
+        if not match_indices:
+            self.logger.warning('No matches found at any specified indices!')
+
+        substr_indices = list()
+        for match_value in match_values:
+            substr_indices.extend([m.start() for m in finditer(match_value, original_msg)])
+        substr_indices = sorted(set(substr_indices))
+
+        global_mod_count = 0
+        modifications = {}
         for match_index in match_indices:
-            num = -1
-            substr_index = -1
-            try:
-                while num < match_index:
-                    substr_index = original_msg.index(match_value, substr_index + 1)
-                    num += 1
-            except ValueError:
-                exception('This should never have happened! Check the filtering mechanism.\r\n\t'
-                          + 'Current tab: {}'.format(tab.namepane_txtfield.getText()))
-                continue
-            substr_index += (len(replace_value) - len(match_value)) * modification_count
-            if ph_radio_insert_selected:
-                insert_at = substr_index + (len(match_value) * (modification_count + 1))
+            match_value = match_values[match_index]
+            substr_index = substr_indices[match_index]
+            for value_modified, times_modified in modifications.items():
+                substr_index += (len(replace_value) - len(value_modified)) * times_modified
+            if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
+                insert_at = substr_index + len(match_value) + (len(match_value) * global_mod_count)
                 msg_as_string = msg_as_string[:insert_at] \
-                                + replace_value \
+                                + replace_value           \
                                 + msg_as_string[insert_at:]
-                modification_count += 1
-                info('Match index [{}]: inserted "{}" after "{}"'.format(
+                self.logger.info('Match index [{}]: appended "{}" to "{}"'.format(
                     match_index, replace_value, match_value))
-            elif ph_radio_replace_selected:
+            elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
                 msg_as_string = msg_as_string[:substr_index] \
-                                + replace_value \
+                                + replace_value              \
                                 + msg_as_string[substr_index + len(match_value):]
-                modification_count += 1
-                info('Match index [{}]: matched "{}", replaced with "{}"'.format(
+                self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
                     match_index, match_value, replace_value))
-
-        if modification_count == 0:
-            warning('No match found for "{}"! Skipping tab "{}".'.format(
-                match_value, tab.namepane_txtfield.getText()))
-            return original_msg
+            global_mod_count += 1
+            if match_value in modifications:
+                modifications[match_value] += 1
+            else:
+                modifications[match_value] = 1
 
         return msg_as_string
 
 ########################################################################################################################
 #  End CustomParameterHandler.py
 ########################################################################################################################
+

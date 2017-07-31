@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Docs - Custom Parameter Handler</title>
+    <link rel="icon" href="images/cph_icon.png"/>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="style/home.css" />
+</head>
+
+<body>
+
+<script>
+function load_mainframe() {
+    if (window.location.hash.length > 1) {
+        page = window.location.hash.split('#')[1] + '.html';
+        $.ajax({
+            url:page,
+            type:'HEAD',
+            success: function() {
+                $('#mainframe').load(page);
+                prev_page = page;
+            },
+            error: function() {
+                window.location.hash = prev_page.replace('.html', '');
+            }
+        })
+    }
+    else {
+        $('#mainframe').load('main.html');
+    }
+}
+page = '';
+prev_page = '';
+window.onload = load_mainframe;
+window.onhashchange = load_mainframe;
+</script>
+
+<!-- Sidebar based on http://startbootstrap.com/template-overviews/simple-sidebar/ -->
+<div id="wrapper">
+    <div id="sidebar-wrapper">
+        <ul class="sidebar-nav list-unstyled">
+            <li class="sidebar-brand">
+                <a href="/burp-cph">
+                    <img class="logo center-block" src="images/cph_transparent.png" />
+                </a>
+            </li>
+
+            <li class="node" data-toggle="collapse" data-target="#Installation">Installation</li>
+            <div id="Installation" class="collapse in">
+                <li><a href="#installation/bapp">BApp Store</a></li>
+                <li><a href="#installation/manual">Manually</a></li>
+            </div>
+
+            <li class="node" data-toggle="collapse" data-target="#Quickstart">Quickstart</li>
+            <div id="Quickstart" class="collapse in">
+                <li><a href="#quickstart/scope_burp">Add to Burp Suite's Scope</a></li>
+                <li><a href="#quickstart/find_replace">Find &amp; Replace</a></li>
+                <li><a href="#quickstart/enable_disable">Enable &amp; Disable CPH Tabs</a></li>
+                <li><a href="#quickstart/scope_cph">Scope CPH Tab</a></li>
+                <li><a href="#quickstart/indices">Target Specific Matches</a></li>
+                <li><a href="#quickstart/replace_append">Replace or Append</a></li>
+                <li><a href="#quickstart/tab_order">Tab Order</a></li>
+            </div>
+
+            <li class="node" data-toggle="collapse" data-target="#Advanced_Parameter_Handling">Advanced Parameter Handling</li>
+            <div id="Advanced_Parameter_Handling" class="collapse in">
+                <li><a href="#advanced/emv">Effective Modification Viewer</a></li>
+                <li><a href="#advanced/extract_single">Extract from Other Response</a></li>
+                <li><a href="#advanced/add_header">Add a new HTTP Header</a></li>
+            </div>
+
+            <li class="node" data-toggle="collapse" data-target="#Expert_Parameter_Handling">Expert Parameter Handling</li>
+            <div id="Expert_Parameter_Handling" class="collapse in">
+                <li><a href="#expert/extract_cached">Extract from Prior</a></li>
+                <li><a href="#expert/extract_macro">Extract from Sequence</a></li>
+                <li><a href="#expert/modify_macro">Modify within Sequence</a></li>
+            </div>
+
+        </ul>
+    </div>
+    <button id="menu-toggle" class="btn btn-lg" href="#menu-toggle">
+        <span class="glyphicon glyphicon-menu-hamburger"></span>
+    </button>
+    <script type="text/javascript">
+    $(document).ready(function() {
+        $('.collapse').on('hidden.bs.collapse', function() {
+            if (this.id)
+            { localStorage.setItem(this.id, '1'); }
+        }).on('shown.bs.collapse', function() {
+            if (this.id)
+            { localStorage.removeItem(this.id); }
+        }).each(function() {
+            if (this.id && localStorage.getItem(this.id) === '1' )
+            { $(this).collapse('hide'); }
+        });
+    });
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+    </script>
+    <div id="page-content-wrapper">
+        <div id="mainframe">
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
