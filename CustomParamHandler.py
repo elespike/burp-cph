@@ -15,6 +15,7 @@ from logging import (
 from re import (
     compile          ,
     error as re_error,
+    escape           ,
     findall          ,
     finditer         ,
     search           ,
@@ -495,7 +496,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
         substr_indices = list()
         for match_value in match_values:
-            substr_indices.extend([m.start() for m in finditer(match_value, original_msg)])
+            # Escaping match_value with re.escape() because at this point we need to scan for literals,
+            # since match_values was already built from the supplied regular expressions.
+            substr_indices.extend([m.start() for m in finditer(escape(match_value), original_msg)])
         substr_indices = sorted(set(substr_indices))
 
         global_mod_count = 0
