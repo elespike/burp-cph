@@ -109,7 +109,9 @@ class CPH_Help:
         or append a value to your target match(es) when<br>
         that value has been cached by a previous CPH tab,<br>
         simply select the desired tab from the dynamic drop-down.<br>
-        <br>
+        <i>NOTE: If the desired tab is not in the drop-down, ensure<br> 
+		that the tab has seen its request at least once.</i><br>
+		<br>
         Then, craft a RegEx to extract the desired value<br>
         from the selected tab's cached response.<br>
         Note that disabled tabs will still cache HTTP messages<br>
