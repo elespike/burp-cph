@@ -669,9 +669,11 @@ class OptionsTab(SubTab, ChangeListener):
         return config
 
 class EMVTab(JSplitPane, ListSelectionListener):
-    MAX_ITEMS = 30
+    MAX_ITEMS = 32
     def __init__(self, configtab):
         self.configtab = configtab
+        self.updating = False
+        self.selected_index = -1
 
         self.table = JTable(self.EMVTableModel())
         self.table_model = self.table.getModel()
@@ -683,35 +685,19 @@ class EMVTab(JSplitPane, ListSelectionListener):
         table_pane.setViewportView(self.table)
         table_pane.getVerticalScrollBar().setUnitIncrement(16)
 
-        self.original_field = JTextArea()
-        self.original_field.setEditable(False)
-
-        original_pane = JScrollPane()
-        original_pane.setViewportView(self.original_field)
-        original_pane.getVerticalScrollBar().setUnitIncrement(16)
-
-        self.modified_field = JTextArea()
-        self.modified_field.setEditable(False)
-
-        modified_pane = JScrollPane()
-        modified_pane.setViewportView(self.modified_field)
-        modified_pane.getVerticalScrollBar().setUnitIncrement(16)
+        self.diff_field     = self.configtab._cph.callbacks.createMessageEditor(None, False)
+        self.original_field = self.configtab._cph.callbacks.createMessageEditor(None, False)
+        self.modified_field = self.configtab._cph.callbacks.createMessageEditor(None, False)
 
         self.viewer = JSplitPane()
-        self.viewer.setLeftComponent(original_pane)
-        self.viewer.setRightComponent(modified_pane)
+        self.viewer.setLeftComponent(self.original_field.getComponent())
+        self.viewer.setRightComponent(self.modified_field.getComponent())
 
-        self.diff_field = JTextArea()
-        self.diff_field.setEditable(False)
-
-        diff_pane = JScrollPane()
-        diff_pane.setViewportView(self.diff_field)
-        diff_pane.getVerticalScrollBar().setUnitIncrement(16)
-
-        diffpane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
-        diffpane.setTopComponent(diff_pane)
-        diffpane.setBottomComponent(self.viewer)
-        diffpane.setDividerLocation(100)
+        self.diffpane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
+        # Top pane gets populated in value_changed(), below.
+        self.diffpane.setTopComponent(JPanel())
+        self.diffpane.setBottomComponent(self.viewer)
+        self.diffpane.setDividerLocation(100)
 
         viewer_pane = JPanel(GridBagLayout())
         constraints = GridBagConstraints()
@@ -721,7 +707,7 @@ class EMVTab(JSplitPane, ListSelectionListener):
         constraints.anchor = GridBagConstraints.NORTH
         constraints.gridx = 0
         constraints.gridy = 0
-        viewer_pane.add(diffpane, constraints)
+        viewer_pane.add(self.diffpane, constraints)
 
         self.setOrientation(JSplitPane.VERTICAL_SPLIT)
         self.setTopComponent(table_pane)
@@ -747,9 +733,19 @@ class EMVTab(JSplitPane, ListSelectionListener):
         self.table.setRowSelectionInterval(0, 0)
 
     def valueChanged(self, e):
+        # Jenky lock mechanism to prevent crash with many quickly-repeated triggers.
+        if self.updating:
+            return
+        self.updating = True
+
         index = self.table.getSelectedRow()
+        if self.selected_index == index:
+            self.updating = False
+            return
+        self.selected_index = index
         original_msg = self.table_model.messages[index].original_msg
         modified_msg = self.table_model.messages[index].modified_msg
+
         diff = unified_diff(original_msg.splitlines(1), modified_msg.splitlines(1))
         text = ''
         for line in diff:
@@ -758,9 +754,17 @@ class EMVTab(JSplitPane, ListSelectionListener):
             text += line
             if not text.endswith('\n'):
                 text += '\n'
-        self.diff_field.setText(text)
-        self.original_field.setText(original_msg)
-        self.modified_field.setText(modified_msg)
+
+        dl = self.diffpane.getDividerLocation()
+        is_request = self.table_model.rows[index][1] == 'Request'
+        self.diff_field    .setMessage(text        , is_request)
+        self.original_field.setMessage(original_msg, is_request)
+        self.modified_field.setMessage(modified_msg, is_request)
+
+        self.diffpane.setTopComponent(self.diff_field.getComponent().getComponentAt(0))
+        self.diffpane.setDividerLocation(dl)
+        self.updating = False
+
 
     class EMVTableModel(AbstractTableModel):
         def __init__(self):
