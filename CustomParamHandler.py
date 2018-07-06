@@ -18,6 +18,7 @@ from re import (
     escape           ,
     findall          ,
     finditer         ,
+    split as re_split,
     search           ,
     sub              ,
 )
@@ -371,101 +372,82 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         ph_field_extract_single_txt, ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
         ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
 
-        original_msg = msg_as_string
-
         if not ph_field_matchtarget_txt:
-            self.logger.warning('No match expression specified! Skipping tab "{}".'.format(
-                tab.namepane_txtfield.getText()))
-            return original_msg
+            self.logger.warning(
+                'No match expression specified! Skipping tab "{}".'.format(
+                    tab.namepane_txtfield.getText()
+                )
+            )
+            return msg_as_string
 
-        if False:
-            # match_values = list()
-            # for i in range(original_msg.count(ph_field_matchtarget_txt)):
-                # match_values.append(ph_field_matchtarget_txt)
+        all_matches = findall(ph_field_matchtarget_txt, msg_as_string)
+        match_count = len(all_matches)
 
-            # exc_search_for_exp = 'Error searching for expression {}. Details below:'
-            # if ph_checkbox_matchtarget_regex:
-                # try:
-                    # match_values = findall(ph_field_matchtarget_txt, original_msg)
-                # except re_error:
-                    # self.logger.exception(exc_search_for_exp.format(
-                        # ph_field_matchtarget_txt))
-                # In case multiple groups were specified, use only the first group
-                # for i, match_value in enumerate(list(match_values)):
-                    # if type(match_value) == tuple:
-                        # match_values[i] = match_value[0]
-                # self.logger.debug('Extracted match values using this expression: {}'.format(
-                    # ph_field_matchtarget_txt))
-            # self.logger.debug('Final match values: {}'.format(match_values))
+        if not match_count:
+            self.logger.warning(
+                'No matches found using expression "{}"! Skipping tab "{}".'.format(
+                    ph_field_matchtarget_txt,
+                    tab.namepane_txtfield.getText(),
+                )
+            )
+            return msg_as_string
 
-            # replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
-            # self.logger.debug('Initial replace value: {}'.format(replace_value))
+        # TODO move to constants somewhere?
+        dbg_extracted_repl    = 'Extracted replace value using this expression: {}'
+        dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
+        dbg_new_repl_val      = 'Replace value is now: {}'
 
-            # match = None
-            # dbg_extracted_repl = 'Extracted replace value using this expression: {}'
-            # dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
-            # dbg_new_repl_val = 'Replace value is now: {}'
-            # if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
-                # try:
-                    # match = search(ph_field_extract_cached_txt,
-                                      # self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage()))
-                # except re_error:
-                    # self.logger.exception(exc_search_for_exp.format(
-                        # ph_field_extract_cached_txt))
-                # if match:
-                    # replace_value = match.group(0)
-                    # if match.groups():
-                        # replace_value = match.group(1)
-                    # self.logger.debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
-                    # self.logger.debug(dbg_new_repl_val.format(replace_value))
-                # else:
-                    # self.logger.debug(dbg_extract_repl_fail.format(
-                        # ph_field_extract_cached_txt))
-            # elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
-                # try:
-                    # self.issue_request(tab)
-                    # match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
-                # except re_error:
-                    # self.logger.exception(exc_search_for_exp.format(
-                        # ph_field_extract_single_txt))
-                # if match:
-                    # replace_value = match.group(0)
-                    # if match.groups():
-                        # replace_value = match.group(1)
-                    # self.logger.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                    # self.logger.debug(dbg_new_repl_val.format(replace_value))
-                # else:
-                    # self.logger.debug(dbg_extract_repl_fail.format(
-                        # ph_field_extract_single_txt))
-            # elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
-                # try:
-                    # match = search(ph_field_extract_macro_txt, self.final_macro_resp)
-                # except re_error:
-                    # self.logger.exception(exc_search_for_exp.format(
-                        # ph_field_extract_macro_txt))
-                # if match:
-                    # replace_value = match.group(0)
-                    # if match.groups():
-                        # replace_value = match.group(1)
-                    # self.logger.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
-                    # self.logger.debug(dbg_new_repl_val.format(replace_value))
-                # else:
-                    # self.logger.debug(dbg_extract_repl_fail.format(
-                        # ph_field_extract_macro_txt))
+        match = None
+        replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
 
-            # self.logger.debug('Final replace value: {}'.format(replace_value))
-            # self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(set(match_values), replace_value))
+        if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
+            try:
+                match = search(
+                    ph_field_extract_cached_txt,
+                    self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage())
+                )
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(ph_field_extract_cached_txt))
+            if match:
+                replace_value = match.group(0)
+                if match.groups():
+                    replace_value = match.group(1)
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
+                self.logger.debug(dbg_new_repl_val  .format(replace_value))
+            else:
+                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_cached_txt))
 
-            # match_count = 0
-            # for match_value in set(match_values):
-                # match_count += original_msg.count(match_value)
-            # if not match_count:
-                # self.logger.warning('No match found for any of "{}"! Skipping tab "{}".'.format(
-                    # match_values, tab.namepane_txtfield.getText()))
-                # return original_msg
-            pass
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
+            try:
+                self.issue_request(tab)
+                match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(ph_field_extract_single_txt))
+            if match:
+                replace_value = match.group(0)
+                if match.groups():
+                    replace_value = match.group(1)
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
+                self.logger.debug(dbg_new_repl_val  .format(replace_value))
+            else:
+                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_single_txt))
 
-        # TODO probaby no need for match_count, just normalize indices
+        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
+            try:
+                match = search(ph_field_extract_macro_txt, self.final_macro_resp)
+            except re_error:
+                self.logger.exception(exc_search_for_exp.format(ph_field_extract_macro_txt))
+            if match:
+                replace_value = match.group(0)
+                if match.groups():
+                    replace_value = match.group(1)
+                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
+                self.logger.debug(dbg_new_repl_val  .format(replace_value))
+            else:
+                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_macro_txt))
+
+        self.logger.debug('replace_value: {}'.format(replace_value))
+
         subsets = ph_field_matchnum_txt.replace(' ', '').split(',')
         match_indices = []
         for subset in subsets:
@@ -494,51 +476,51 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         match_indices = set(sorted([m for m in match_indices if m < match_count]))
         self.logger.debug('match_indices: {}'.format(match_indices))
 
-        if False:
-            # if not match_indices:
-                # self.logger.warning('No matches found at any specified indices!')
+        message_parts = re_split(ph_field_matchtarget_txt, msg_as_string)
+        remaining_indices = list(match_indices)
 
-            # substr_indices = list()
-            # for match_value in match_values:
-                # Escaping match_value with re.escape() because at this point we need to scan for literals,
-                # since match_values was already built from the supplied regular expressions.
-                # substr_indices.extend([m.start() for m in finditer(escape(match_value), original_msg)])
-            # substr_indices = sorted(set(substr_indices))
-            pass
+        replace_matches = tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE
 
-        '''
-        re.split
-        re.findall
-        iterate match_indices, stich'em
-        '''
+        # TODO logging for operations below.
 
-        global_mod_count = 0
-        modifications = {}
-        for match_index in match_indices:
-            match_value = match_values[match_index]
-            substr_index = substr_indices[match_index]
-            for value_modified, times_modified in modifications.items():
-                substr_index += (len(replace_value) - len(value_modified)) * times_modified
-            if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
-                insert_at = substr_index + len(match_value) + (len(match_value) * global_mod_count)
-                msg_as_string = msg_as_string[:insert_at] \
-                                + replace_value           \
-                                + msg_as_string[insert_at:]
-                self.logger.info('Match index [{}]: appended "{}" to "{}"'.format(
-                    match_index, replace_value, match_value))
-            elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
-                msg_as_string = msg_as_string[:substr_index] \
-                                + replace_value              \
-                                + msg_as_string[substr_index + len(match_value):]
-                self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
-                    match_index, match_value, replace_value))
-            global_mod_count += 1
-            if match_value in modifications:
-                modifications[match_value] += 1
+        message_beginning = ''
+        if msg_as_string.startswith(all_matches[0]):
+            if remaining_indices[0] == 0:
+                if replace_matches:
+                    message_beginning += replace_value
+                else: # append
+                    message_beginning += all_matches[0] + replace_value
+                remaining_indices.pop(0)
             else:
-                modifications[match_value] = 1
+                modified_message += all_matches[0]
+            message_beginning += message_parts.pop(0)
 
-        return msg_as_string
+        message_ending = ''
+        if msg_as_string.endswith(all_matches[-1]):
+            message_ending += message_parts.pop(-1)
+            if remaining_indices[-1] == match_count - 1:
+                if replace_matches:
+                    message_ending += replace_value
+                else: # append
+                    message_ending += all_matches[-1] + replace_value
+                remaining_indices.pop(-1)
+            else:
+                message_ending += all_matches[-1]
+
+        modified_message = message_beginning
+        for part_index, message_part in enumerate(message_parts):
+            modified_message += message_part
+            if remaining_indices and part_index == remaining_indices[0]:
+                if replace_matches:
+                    modified_message += replace_value
+                else: # append
+                    modified_message += all_matches[part_index] + replace_value
+                remaining_indices.pop(0)
+            elif part_index < match_count:
+                modified_message += all_matches[part_index]
+        modified_message += message_ending
+
+        return modified_message
 
 ########################################################################################################################
 #  End CustomParameterHandler.py
