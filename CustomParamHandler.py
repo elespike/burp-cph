@@ -13,14 +13,12 @@ from logging import (
     getLogger    ,
 )
 from re import (
-    compile          ,
-    error as re_error,
-    escape           ,
-    findall          ,
-    finditer         ,
-    split as re_split,
-    search           ,
-    sub              ,
+    compile as re_compile,
+    error   as re_error  ,
+    findall as re_findall,
+    split   as re_split  ,
+    search  as re_search ,
+    sub     as re_sub    ,
 )
 
 from CPH_Config  import MainTab
@@ -159,13 +157,13 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                         self.logger.debug('Cookie header from derivation request:\n{}'.format(header))
                         if not header.endswith(';'):
                             header += ';'
-                        match = search(r'[ ;]' + cname + r'=.+?[;\r]', header)
+                        match = re_search(r'[ ;]' + cname + r'=.+?[;\r]', header)
                         if match:
                             self.logger.debug('Cookie found in derivation request headers: {}'.format(cname))
                             cvalue = cookie.getValue()
                             self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
                             if cvalue:
-                                exp = compile('({}=).+?([;\r])'.format(cname))
+                                exp = re_compile('({}=).+?([;\r])'.format(cname))
                                 req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
                                 tab.request = self.helpers.stringToBytes(req_as_string)
                                 tab.param_handl_request_editor.setMessage(tab.request, True)
@@ -262,7 +260,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
             requestinfo = self.helpers.analyzeRequest(req)
             content_length = len(req) - requestinfo.getBodyOffset()
-            req_as_string = sub(content_length_pattern,
+            req_as_string = re_sub(content_length_pattern,
                                    content_length_repl.format(content_length),
                                    req_as_string,
                                    1)
@@ -298,7 +296,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
             responseinfo = self.helpers.analyzeResponse(resp)
             content_length = len(resp) - responseinfo.getBodyOffset()
-            resp_as_string = sub(content_length_pattern,
+            resp_as_string = re_sub(content_length_pattern,
                                     content_length_repl.format(content_length),
                                     resp_as_string,
                                     1)
@@ -352,7 +350,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             return True
         elif rms_scope_some and rms_field_modifymatch_txt:
             if rms_checkbox_modifymatch_regex:
-                regexp = compile(rms_field_modifymatch_txt)
+                regexp = re_compile(rms_field_modifymatch_txt)
                 if regexp.search(msg_as_string):
                     return True
             else:
@@ -380,71 +378,74 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             )
             return msg_as_string
 
-        all_matches = findall(ph_field_matchtarget_txt, msg_as_string)
-        match_count = len(all_matches)
+        exc_invalid_regex = 'Skipping tab "{}" due to invalid regular expression: {{}}'.format(
+            tab.namepane_txtfield.getText()
+        )
 
+        try:
+            match_exp = re_compile(ph_field_matchtarget_txt)
+        except re_error:
+            self.logger.exception(exc_invalid_regex.format(ph_field_matchtarget_txt))
+            return msg_as_string
+
+        # The following code does not remove support for groups,
+        # as the original expression will be used for actual replacements.
+        # We simply need an expression without capturing groups to feed into re.findall(),
+        # which enables the logic for granular control over which match indices to target.
+
+        # Removing named groups to normalize capturing groups.
+        findall_exp = re_sub('\?P<.+?>', '', ph_field_matchtarget_txt)
+        # Removing capturing groups to search for full matches only.
+        findall_exp = re_sub('\(([^?].*)\)', '\g<1>', findall_exp)
+        findall_exp = re_compile(findall_exp)
+
+        all_matches = re_findall(findall_exp, msg_as_string)
+        self.logger.debug('all_matches: {}'.format(all_matches))
+
+        match_count = len(all_matches)
         if not match_count:
             self.logger.warning(
-                'No matches found using expression "{}"! Skipping tab "{}".'.format(
-                    ph_field_matchtarget_txt,
+                'Skipping tab "{}" because this expression found no matches: {}'.format(
                     tab.namepane_txtfield.getText(),
+                    ph_field_matchtarget_txt
                 )
             )
             return msg_as_string
 
-        # TODO move to constants somewhere?
-        dbg_extracted_repl    = 'Extracted replace value using this expression: {}'
-        dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
-        dbg_new_repl_val      = 'Replace value is now: {}'
+        matches = list()
+        replace_value = ph_field_staticvalue_txt
 
-        match = None
-        replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
-
+        find_exp, target_txt = '', ''
         if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
-            try:
-                match = search(
-                    ph_field_extract_cached_txt,
-                    self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage())
-                )
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(ph_field_extract_cached_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
-                self.logger.debug(dbg_new_repl_val  .format(replace_value))
-            else:
-                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_cached_txt))
+            find_exp, target_txt = ph_field_extract_cached_txt, tab.param_handl_cached_resp_viewer.getMessage()
+            target_txt = self.helpers.bytesToString(target_txt)
 
         elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
-            try:
-                self.issue_request(tab)
-                match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(ph_field_extract_single_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                self.logger.debug(dbg_new_repl_val  .format(replace_value))
-            else:
-                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_single_txt))
+            self.issue_request(tab)
+            find_exp, target_txt = ph_field_extract_single_txt, self.helpers.bytesToString(tab.response)
 
         elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
+            find_exp, target_txt = ph_field_extract_macro_txt, self.final_macro_resp
+
+        if find_exp and target_txt:
             try:
-                match = search(ph_field_extract_macro_txt, self.final_macro_resp)
+                matches = re_findall(find_exp, target_txt)
             except re_error:
-                self.logger.exception(exc_search_for_exp.format(ph_field_extract_macro_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
-                self.logger.debug(dbg_new_repl_val  .format(replace_value))
+                self.logger.exception(exc_invalid_regex.format(ph_field_extract_macro_txt))
+                return msg_as_string
+
+            if matches:
+                # Converting into a set to ignore duplicates.
+                if len(set(matches)) > 1:
+                    # TODO the message:
+                    self.logger.warning('Ambiguous, skipping tab')
+                    return msg_as_string
+                # Joining in case multiple groups were used.
+                replace_value = ''.join(matches[0])
             else:
-                self.logger.debug(dbg_extract_repl_fail.format(ph_field_extract_macro_txt))
+                # TODO no replacement value found
+                self.logger.warning('not found yo, skipping tab')
+                return msg_as_string
 
         self.logger.debug('replace_value: {}'.format(replace_value))
 
@@ -476,49 +477,32 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         match_indices = set(sorted([m for m in match_indices if m < match_count]))
         self.logger.debug('match_indices: {}'.format(match_indices))
 
-        message_parts = re_split(ph_field_matchtarget_txt, msg_as_string)
-        remaining_indices = list(match_indices)
-
-        replace_matches = tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE
+        # Using findall_exp to avoid including capture groups in the result.
+        message_parts = re_split(findall_exp, msg_as_string)
+        self.logger.debug('message_parts: {}'.format(message_parts))
 
         # TODO logging for operations below.
-
-        message_beginning = ''
-        if msg_as_string.startswith(all_matches[0]):
-            if remaining_indices[0] == 0:
-                if replace_matches:
-                    message_beginning += replace_value
-                else: # append
-                    message_beginning += all_matches[0] + replace_value
-                remaining_indices.pop(0)
-            else:
-                modified_message += all_matches[0]
-            message_beginning += message_parts.pop(0)
-
-        message_ending = ''
-        if msg_as_string.endswith(all_matches[-1]):
-            message_ending += message_parts.pop(-1)
-            if remaining_indices[-1] == match_count - 1:
-                if replace_matches:
-                    message_ending += replace_value
-                else: # append
-                    message_ending += all_matches[-1] + replace_value
-                remaining_indices.pop(-1)
-            else:
-                message_ending += all_matches[-1]
-
-        modified_message = message_beginning
+        modified_message  = ''
+        remaining_indices = list(match_indices)
         for part_index, message_part in enumerate(message_parts):
-            modified_message += message_part
+            combined_part = message_part
+            if part_index < match_count:
+                combined_part += all_matches[part_index]
+            self.logger.debug('combined_part: {}'.format(combined_part))
             if remaining_indices and part_index == remaining_indices[0]:
-                if replace_matches:
-                    modified_message += replace_value
+                if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
+                    # TODO check regex chkbox
+                    self.logger.debug('finding {}, replacing {} in {}'.format(match_exp.pattern, replace_value, combined_part))
+                    final_value = re_sub(match_exp, replace_value, combined_part)
                 else: # append
-                    modified_message += all_matches[part_index] + replace_value
+                    # TODO uncheck regex chkbox
+                    final_value = combined_part + replace_value
+                self.logger.debug('final_value: {}'.format(final_value))
+                modified_message += final_value
                 remaining_indices.pop(0)
-            elif part_index < match_count:
-                modified_message += all_matches[part_index]
-        modified_message += message_ending
+            else:
+                modified_message += combined_part
+            self.logger.debug('mod: {}'.format(modified_message))
 
         return modified_message
 
