@@ -39,6 +39,7 @@ from javax.swing import JMenuItem
 
 class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
+        # TODO remove when host fwd stuff is done
         self._hostheader = 'Host: '
         self.messages_to_send = []
         self.final_macro_resp = ''
@@ -47,8 +48,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.initialize_logger()
 
     def initialize_logger(self):
-        fmt='%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
-        datefmt='%H:%M:%S'
+        fmt = '%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
+        datefmt = '%H:%M:%S'
         formatter = Formatter(fmt=fmt, datefmt=datefmt)
 
         handler = StreamHandler(stream=stdout)
@@ -59,8 +60,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
-        self.helpers = callbacks.getHelpers()
-        self.maintab = MainTab(self)
+        self.helpers   = callbacks.getHelpers()
+        self.maintab   = MainTab(self)
         callbacks.setExtensionName('Custom Parameter Handler')
         callbacks.registerContextMenuFactory(self)
         callbacks.registerExtensionStateListener(self)
@@ -113,6 +114,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             except:
                 continue
 
+    # TODO probably remove this later
     @staticmethod
     def split_host_port(host_and_port):
         split_index = host_and_port.index(':')
@@ -125,11 +127,12 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             return host, 80
 
     def issue_request(self, tab):
-        tab.request = tab.param_handl_request_editor.getMessage()
-        req_as_string = self.helpers.bytesToString(tab.request)
-        req_info = self.helpers.analyzeRequest(tab.request)
-        headers = req_info.getHeaders()
+        tab.request   = tab.param_handl_request_editor.getMessage()
+        req_as_string = self.helpers.bytesToString (tab.request)
+        req_info      = self.helpers.analyzeRequest(tab.request)
+        headers       = req_info.getHeaders()
 
+        # TODO probably remove this after a host/port control is in place
         # Update host header
         host = ''
         port = 80
@@ -141,7 +144,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 host = header.replace(self._hostheader, '')
                 if ':' in host:
                     host, port = self.split_host_port(host)
-        self.logger.debug('Host is: {}'.format(host))
+        self.logger.debug('Host: {}'.format(host))
 
         # Update cookies
         if tab.param_handl_update_cookies_chkbox.isSelected():
@@ -150,7 +153,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 cdom = cookie.getDomain()
                 if host not in cdom:
                     continue
-                self.logger.debug('Cookie domain is: {}'.format(cdom))
+                self.logger.debug('Cookie domain: {}'.format(cdom))
                 cname = cookie.getName()
                 for header in headers:
                     if header.startswith('Cookie: '):
@@ -168,7 +171,10 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                                 tab.request = self.helpers.stringToBytes(req_as_string)
                                 tab.param_handl_request_editor.setMessage(tab.request, True)
                                 self.logger.info('Cookie updated on tab "{}": {}={}'.format(
-                                    tab.namepane_txtfield.getText(), cname, cvalue))
+                                    tab.namepane_txtfield.getText(),
+                                    cname,
+                                    cvalue
+                                ))
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
@@ -182,7 +188,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         # Generic except because misc. Java exceptions might occur.
         except:
             self.logger.exception('Error issuing configured request from tab "{}" to host "{}"'.format(
-                tab.namepane_txtfield.getText(), host))
+                tab.namepane_txtfield.getText(),
+                host
+            ))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
 
@@ -225,13 +233,13 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             return
 
         requestinfo = self.helpers.analyzeRequest(messageInfo)
-        requesturl = requestinfo.getUrl()
+        requesturl  = requestinfo.getUrl()
         if not self.callbacks.isInScope(requesturl):
             return
         req = messageInfo.getRequest()
         req_as_string = self.helpers.bytesToString(req)
         content_length_pattern = r'Content-Length: \d+\r\n'
-        content_length_repl = 'Content-Length: {}\r\n'
+        content_length_repl    =  'Content-Length: {}\r\n'
         set_cache = False
         if messageIsRequest:
             for tab in self.maintab.get_config_tabs():
@@ -239,34 +247,45 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     continue
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
-                    self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    self.logger.info('Sending request to tab "{}" for modification'.format(
+                        tab.namepane_txtfield.getText()
+                    ))
                     modified_request = self.modify_message(tab, req_as_string)
                     if req_as_string != modified_request:
                         if tab.param_handl_auto_encode_chkbox.isSelected():
                             # URL-encode the first line of the request, since it was modified
                             first_req_line_old = modified_request.split('\r\n')[0]
-                            self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
+                            self.logger.debug('first_req_line_old:\n{}'.format(first_req_line_old))
                             first_req_line_old = first_req_line_old.split(' ')
                             first_req_line_new = '{} {} {}'.format(
                                 first_req_line_old[0],
                                 ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
-                                first_req_line_old[-1])
-                            self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
-                            modified_request = modified_request.replace(' '.join(first_req_line_old), first_req_line_new)
+                                first_req_line_old[-1]
+                            )
+                            self.logger.debug('first_req_line_new:\n{}'.format(first_req_line_new))
+                            modified_request = modified_request.replace(
+                                ' '.join(first_req_line_old),
+                                first_req_line_new
+                            )
                         tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
                         req_as_string = modified_request
-                        self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
+                        self.logger.debug('Resulting first line of request:\n{}'.format(
+                            req_as_string.split('\r\n')[0]
+                        ))
                         req = self.helpers.stringToBytes(req_as_string)
 
-            requestinfo = self.helpers.analyzeRequest(req)
+            requestinfo    = self.helpers.analyzeRequest(req)
             content_length = len(req) - requestinfo.getBodyOffset()
-            req_as_string = re_sub(content_length_pattern,
-                                   content_length_repl.format(content_length),
-                                   req_as_string,
-                                   1)
+            req_as_string  = re_sub(
+                content_length_pattern,
+                content_length_repl.format(content_length),
+                req_as_string,
+                1
+            )
             req = self.helpers.stringToBytes(req_as_string)
             messageInfo.setRequest(req)
 
+            # TODO probably remove this after the fwd control is in place
             requestinfo = self.helpers.analyzeRequest(req)
             new_headers = requestinfo.getHeaders()
             httpsvc = messageInfo.getHttpService()
@@ -276,8 +295,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     host = header.replace(self._hostheader, '')
                     if ':' in host:
                         host, port = self.split_host_port(host)
-                    messageInfo.setHttpService(self.helpers.buildHttpService(
-                        host, port, httpsvc.getProtocol()))
+                    messageInfo.setHttpService(self.helpers.buildHttpService(host, port, httpsvc.getProtocol()))
                     break
             self.logger.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
 
@@ -287,29 +305,36 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             for tab in self.maintab.get_config_tabs():
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
-                    self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
+                    self.logger.info('Sending response to tab "{}" for modification'.format(
+                        tab.namepane_txtfield.getText()
+                    ))
                     modified_response = self.modify_message(tab, resp_as_string)
                     if resp_as_string != modified_response:
                         tab.emv_tab.add_table_row(dt.now().time(), False, resp_as_string, modified_response)
                         resp_as_string = modified_response
                     resp = self.helpers.stringToBytes(resp_as_string)
 
-            responseinfo = self.helpers.analyzeResponse(resp)
+            responseinfo   = self.helpers.analyzeResponse(resp)
             content_length = len(resp) - responseinfo.getBodyOffset()
-            resp_as_string = re_sub(content_length_pattern,
-                                    content_length_repl.format(content_length),
-                                    resp_as_string,
-                                    1)
+            resp_as_string = re_sub(
+                content_length_pattern,
+                content_length_repl.format(content_length),
+                resp_as_string,
+                1
+            )
             resp = self.helpers.stringToBytes(resp_as_string)
             messageInfo.setResponse(resp)
 
             for working_tab in self.maintab.get_config_tabs():
                 selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
                 working_tab.param_handl_combo_cached.removeAllItems()
-                if self.is_in_cph_scope(req_as_string, True, working_tab) or self.is_in_cph_scope(resp_as_string, False, working_tab):
+                if self.is_in_cph_scope(req_as_string , True , working_tab)\
+                or self.is_in_cph_scope(resp_as_string, False, working_tab):
                     working_tab.cached_request  = req
                     working_tab.cached_response = resp
-                    self.logger.debug('Messages cached for tab {}!'.format(working_tab.namepane_txtfield.getText()))
+                    self.logger.debug('Messages cached for tab {}!'.format(
+                        working_tab.namepane_txtfield.getText()
+                    ))
                 for previous_tab in self.maintab.get_config_tabs():
                     if working_tab == previous_tab:
                         break
@@ -331,12 +356,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         rms_type_responses = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_RESP
         rms_type_both      = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_BOTH
 
-        rms_field_modifymatch_txt, rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
-
-        self.logger.debug('is_request: {}'.format(is_request))
-        self.logger.debug('rms_type_requests: {}'.format(rms_type_requests))
-        self.logger.debug('rms_type_responses: {}'.format(rms_type_responses))
-        self.logger.debug('rms_type_both: {}'.format(rms_type_both))
+        rms_field_modifymatch_txt = tab.get_exp_pane_component(tab.msg_mod_exp_pane_scope, tab.TXT_FIELD_INDEX).getText()
 
         if is_request and (rms_type_requests or rms_type_both):
             pass
@@ -363,12 +383,12 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
     def modify_message(self, tab, msg_as_string):
         ph_field_matchnum_txt    = tab.param_handl_txtfield_match_indices .getText()
-        ph_field_staticvalue_txt = tab.param_handl_txtfield_extract_static.getText()
 
-        ph_field_matchtarget_txt   , ph_checkbox_matchtarget_regex    = tab.get_exp_pane_values(tab.param_handl_exp_pane_target        )
-        ph_field_extract_cached_txt, ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
-        ph_field_extract_single_txt, ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
-        ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
+        ph_field_matchtarget_txt    = tab.get_exp_pane_component(tab.param_handl_exp_pane_target        , tab.TXT_FIELD_INDEX).getText()
+        ph_field_staticvalue_txt    = tab.get_exp_pane_component(tab.param_handl_exp_pane_extract_static, tab.TXT_FIELD_INDEX).getText()
+        ph_field_extract_single_txt = tab.get_exp_pane_component(tab.param_handl_exp_pane_extract_single, tab.TXT_FIELD_INDEX).getText()
+        ph_field_extract_macro_txt  = tab.get_exp_pane_component(tab.param_handl_exp_pane_extract_macro , tab.TXT_FIELD_INDEX).getText()
+        ph_field_extract_cached_txt = tab.get_exp_pane_component(tab.param_handl_exp_pane_extract_cached, tab.TXT_FIELD_INDEX).getText()
 
         if not ph_field_matchtarget_txt:
             self.logger.warning(
@@ -396,9 +416,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         # Removing named groups to normalize capturing groups.
         findall_exp = re_sub('\?P<.+?>', '', ph_field_matchtarget_txt)
         # Removing capturing groups to search for full matches only.
-        findall_exp = re_sub('\(([^?].+?)\)', '\g<1>', findall_exp)
-        self.logger.debug('findall_exp: {}'.format(findall_exp))
+        findall_exp = re_sub(r'(?<!\\)\(([^?]*?)(?<!\\)\)', '\g<1>', findall_exp)
         findall_exp = re_compile(findall_exp)
+        self.logger.debug('findall_exp: {}'.format(findall_exp.pattern))
 
         all_matches = re_findall(findall_exp, msg_as_string)
         self.logger.debug('all_matches: {}'.format(all_matches))
@@ -471,7 +491,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     match_indices.append(match_index)
             except ValueError:
                 self.logger.exception(
-                    'Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(tab.namepane_txtfield.getText())
+                    'Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
+                        tab.namepane_txtfield.getText()
+                    )
                 )
                 continue
 
@@ -482,28 +504,22 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         message_parts = re_split(findall_exp, msg_as_string)
         self.logger.debug('message_parts: {}'.format(message_parts))
 
-        # TODO logging for operations below.
         modified_message  = ''
         remaining_indices = list(match_indices)
         for part_index, message_part in enumerate(message_parts):
             combined_part = message_part
             if part_index < match_count:
                 combined_part += all_matches[part_index]
-            self.logger.debug('combined_part: {}'.format(combined_part))
             if remaining_indices and part_index == remaining_indices[0]:
                 if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
-                    # TODO check regex chkbox
-                    self.logger.debug('finding {}, replacing {} in {}'.format(match_exp.pattern, replace_value, combined_part))
-                    final_value = re_sub(match_exp, replace_value, combined_part)
+                    final_value = match_exp.sub(replace_value, combined_part)
                 else: # append
-                    # TODO uncheck regex chkbox
                     final_value = combined_part + replace_value
-                self.logger.debug('final_value: {}'.format(final_value))
+                self.logger.debug('Modification: {}'.format(final_value))
                 modified_message += final_value
                 remaining_indices.pop(0)
             else:
                 modified_message += combined_part
-            self.logger.debug('mod: {}'.format(modified_message))
 
         return modified_message
 
