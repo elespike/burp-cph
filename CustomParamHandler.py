@@ -39,8 +39,6 @@ from javax.swing import JMenuItem
 
 class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
-        # TODO remove when host fwd stuff is done
-        self._hostheader = 'Host: '
         self.messages_to_send = []
         self.final_macro_resp = ''
 
@@ -102,7 +100,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 )
             self.maintab.options_tab.emv.dispose()
         except AttributeError:
-            self.logger.warning('Effective Modification Viewer not found! You may be using an outdated version of CPH!')
+            self.logger.warning(
+                'Effective Modification Viewer not found! You may be using an outdated version of CPH!'
+            )
 
         while self.maintab.mainpane.getTabCount():
             # For some reason, the last tab isn't removed until the next loop,
@@ -114,85 +114,89 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             except:
                 continue
 
-    # TODO probably remove this later
-    @staticmethod
-    def split_host_port(host_and_port):
-        split_index = host_and_port.index(':')
-        host = host_and_port[:split_index]
-        try:
-            port = int(host_and_port[split_index + 1:])
-            return host, port
-        except ValueError:
-            self.logger.exception('Invalid port value detected; reverting to port 80. Details below:')
-            return host, 80
-
     def issue_request(self, tab):
-        tab.request   = tab.param_handl_request_editor.getMessage()
-        req_as_string = self.helpers.bytesToString (tab.request)
-        req_info      = self.helpers.analyzeRequest(tab.request)
-        headers       = req_info.getHeaders()
+        tab.request = tab.param_handl_request_editor.getMessage()
 
-        # TODO probably remove this after a host/port control is in place
-        # Update host header
-        host = ''
-        port = 80
-        https = tab.param_handl_https_chkbox.isSelected()
-        if https:
-            port = 443
-        for header in headers:
-            if header.startswith(self._hostheader):
-                host = header.replace(self._hostheader, '')
-                if ':' in host:
-                    host, port = self.split_host_port(host)
-        self.logger.debug('Host: {}'.format(host))
+        host  = tab.get_socket_pane_component(tab.param_handl_issuer_socket_pane, tab.HOST_INDICES).getText()
+        port  = tab.get_socket_pane_component(tab.param_handl_issuer_socket_pane, tab.PORT_INDICES).getValue()
+        https = tab.get_socket_pane_component(tab.param_handl_issuer_socket_pane, tab.HTTPS_INDICES).isSelected()
 
-        # Update cookies
-        if tab.param_handl_update_cookies_chkbox.isSelected():
-            cookies = self.callbacks.getCookieJarContents()
-            for cookie in cookies:
-                cdom = cookie.getDomain()
-                if host not in cdom:
-                    continue
-                self.logger.debug('Cookie domain: {}'.format(cdom))
-                cname = cookie.getName()
-                for header in headers:
-                    if header.startswith('Cookie: '):
-                        self.logger.debug('Cookie header from derivation request:\n{}'.format(header))
-                        if not header.endswith(';'):
-                            header += ';'
-                        match = re_search(r'[ ;]' + cname + r'=.+?[;\r]', header)
-                        if match:
-                            self.logger.debug('Cookie found in derivation request headers: {}'.format(cname))
-                            cvalue = cookie.getValue()
-                            self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
-                            if cvalue:
-                                exp = re_compile('({}=).+?([;\r])'.format(cname))
-                                req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
-                                tab.request = self.helpers.stringToBytes(req_as_string)
-                                tab.param_handl_request_editor.setMessage(tab.request, True)
-                                self.logger.info('Cookie updated on tab "{}": {}={}'.format(
-                                    tab.namepane_txtfield.getText(),
-                                    cname,
-                                    cvalue
-                                ))
+        if tab.get_socket_pane_component(tab.param_handl_issuer_socket_pane, tab.COOKIES_INDICES).isSelected():
+            tab.request = self.update_cookies(tab, host, tab.request)
+
+        tab.request = self.update_content_length(tab.request)
+        tab.param_handl_request_editor.setMessage(tab.request, True)
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
-            resp = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
-            self.logger.debug('Issued configured request from tab "{}" to host "{}"'.format(
-                tab.namepane_txtfield.getText(), httpsvc.getHost()))
-            if resp:
-                tab.param_handl_response_editor.setMessage(resp, False)
-                tab.response = resp
+            resp_bytes = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
+            self.logger.debug('Issued configured request from tab "{}" to host "{}:{}"'.format(
+                tab.namepane_txtfield.getText(),
+                httpsvc.getHost(),
+                httpsvc.getPort()
+            ))
+            if resp_bytes:
+                tab.param_handl_response_editor.setMessage(resp_bytes, False)
+                tab.response = resp_bytes
                 self.logger.debug('Got response!')
         # Generic except because misc. Java exceptions might occur.
         except:
-            self.logger.exception('Error issuing configured request from tab "{}" to host "{}"'.format(
+            self.logger.exception('Error issuing configured request from tab "{}" to host "{}:{}"'.format(
                 tab.namepane_txtfield.getText(),
-                host
+                host,
+                port
             ))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
+
+    def update_cookies(self, tab, host, request_bytes):
+        req_as_string = self.helpers.bytesToString(request_bytes)
+        headers       = self.helpers.analyzeRequest(request_bytes).getHeaders()
+
+        cookies = self.callbacks.getCookieJarContents()
+        for cookie in cookies:
+            cdom = cookie.getDomain()
+            if host not in cdom:
+                continue
+            self.logger.debug('Cookie domain: {}'.format(cdom))
+            cname = cookie.getName()
+            for header in headers:
+                if header.startswith('Cookie: '):
+                    self.logger.debug('Cookie header:\n{}'.format(header))
+                    if not header.endswith(';'):
+                        header += ';'
+                    match = re_search(r'[ ;]' + cname + r'=.+?[;\r]', header)
+                    if match:
+                        self.logger.debug('Cookie found in request: {}'.format(cname))
+                        cvalue = cookie.getValue()
+                        self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
+                        if cvalue:
+                            exp = re_compile('({}=).+?([;\r])'.format(cname))
+                            req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
+                            request_bytes = self.helpers.stringToBytes(req_as_string)
+                            self.logger.info('Cookie updated on tab "{}": {}={}'.format(
+                                tab.namepane_txtfield.getText(),
+                                cname,
+                                cvalue
+                            ))
+        return request_bytes
+
+    def update_content_length(self, message_bytes):
+        # TODO narrow down exception
+        try:
+            message_info = self.helpers.analyzeRequest(message_bytes)
+        except:
+            message_info = self.helpers.analyzeResponse(message_bytes)
+
+        content_length = len(message_bytes) - message_info.getBodyOffset()
+        msg_as_string = self.helpers.bytesToString(message_bytes)
+        msg_as_string = re_sub(
+            'Content-Length: \d+\r\n',
+            'Content-Length: {}\r\n'.format(content_length),
+            msg_as_string,
+            1
+        )
+        return self.helpers.stringToBytes(msg_as_string)
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
         dbg_skip_tool = 'Skipping message received from {} on account of global tool scope options.'
@@ -236,14 +240,12 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         requesturl  = requestinfo.getUrl()
         if not self.callbacks.isInScope(requesturl):
             return
-        req = messageInfo.getRequest()
-        req_as_string = self.helpers.bytesToString(req)
-        content_length_pattern = r'Content-Length: \d+\r\n'
-        content_length_repl    =  'Content-Length: {}\r\n'
+        request_bytes = messageInfo.getRequest()
+        req_as_string = self.helpers.bytesToString(request_bytes)
         set_cache = False
         if messageIsRequest:
             for tab in self.maintab.get_config_tabs():
-                if req == tab.request:
+                if request_bytes == tab.request:
                     continue
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
@@ -272,36 +274,33 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                         self.logger.debug('Resulting first line of request:\n{}'.format(
                             req_as_string.split('\r\n')[0]
                         ))
-                        req = self.helpers.stringToBytes(req_as_string)
+                        request_bytes = self.helpers.stringToBytes(req_as_string)
 
-            requestinfo    = self.helpers.analyzeRequest(req)
-            content_length = len(req) - requestinfo.getBodyOffset()
-            req_as_string  = re_sub(
-                content_length_pattern,
-                content_length_repl.format(content_length),
-                req_as_string,
-                1
-            )
-            req = self.helpers.stringToBytes(req_as_string)
-            messageInfo.setRequest(req)
+            host  = tab.get_socket_pane_component(tab.param_handl_forwarder_socket_pane, tab.HOST_INDICES).getText()
+            port  = tab.get_socket_pane_component(tab.param_handl_forwarder_socket_pane, tab.PORT_INDICES).getValue()
+            https = tab.get_socket_pane_component(tab.param_handl_forwarder_socket_pane, tab.HTTPS_INDICES).isSelected()
 
-            # TODO probably remove this after the fwd control is in place
-            requestinfo = self.helpers.analyzeRequest(req)
-            new_headers = requestinfo.getHeaders()
-            httpsvc = messageInfo.getHttpService()
-            port = httpsvc.getPort()
-            for header in new_headers:
-                if self._hostheader in header:
-                    host = header.replace(self._hostheader, '')
-                    if ':' in host:
-                        host, port = self.split_host_port(host)
-                    messageInfo.setHttpService(self.helpers.buildHttpService(host, port, httpsvc.getProtocol()))
-                    break
-            self.logger.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
+            if tab.get_socket_pane_component(tab.param_handl_forwarder_socket_pane, tab.COOKIES_INDICES).isSelected():
+                request_bytes = self.update_cookies(tab, host, request_bytes)
+
+            request_bytes = self.update_content_length(request_bytes)
+            messageInfo.setRequest(request_bytes)
+
+            if tab.param_handl_enable_forwarder_chkbox.isSelected():
+                try:
+                    messageInfo.setHttpService(self.helpers.buildHttpService(host, int(port), https))
+                    httpsvc = messageInfo.getHttpService()
+                    self.logger.debug('Re-routing request to host "{}:{}"'.format(
+                        httpsvc.getHost(),
+                        httpsvc.getPort()
+                    ))
+                # Generic except because misc. Java exceptions might occur.
+                except:
+                    self.logger.exception('Error re-routing request:')
 
         if not messageIsRequest:
-            resp = messageInfo.getResponse()
-            resp_as_string = self.helpers.bytesToString(resp)
+            resp_bytes = messageInfo.getResponse()
+            resp_as_string = self.helpers.bytesToString(resp_bytes)
             for tab in self.maintab.get_config_tabs():
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
@@ -312,26 +311,18 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     if resp_as_string != modified_response:
                         tab.emv_tab.add_table_row(dt.now().time(), False, resp_as_string, modified_response)
                         resp_as_string = modified_response
-                    resp = self.helpers.stringToBytes(resp_as_string)
+                    resp_bytes = self.helpers.stringToBytes(resp_as_string)
 
-            responseinfo   = self.helpers.analyzeResponse(resp)
-            content_length = len(resp) - responseinfo.getBodyOffset()
-            resp_as_string = re_sub(
-                content_length_pattern,
-                content_length_repl.format(content_length),
-                resp_as_string,
-                1
-            )
-            resp = self.helpers.stringToBytes(resp_as_string)
-            messageInfo.setResponse(resp)
+            resp_bytes = self.update_content_length(resp_bytes)
+            messageInfo.setResponse(resp_bytes)
 
             for working_tab in self.maintab.get_config_tabs():
                 selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
                 working_tab.param_handl_combo_cached.removeAllItems()
                 if self.is_in_cph_scope(req_as_string , True , working_tab)\
                 or self.is_in_cph_scope(resp_as_string, False, working_tab):
-                    working_tab.cached_request  = req
-                    working_tab.cached_response = resp
+                    working_tab.cached_request  = request_bytes
+                    working_tab.cached_response = resp_bytes
                     self.logger.debug('Messages cached for tab {}!'.format(
                         working_tab.namepane_txtfield.getText()
                     ))
