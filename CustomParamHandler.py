@@ -186,6 +186,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         try:
             message_info = self.helpers.analyzeRequest(message_bytes)
         except:
+            self.logger.exception('yo')
             message_info = self.helpers.analyzeResponse(message_bytes)
 
         content_length = len(message_bytes) - message_info.getBodyOffset()
