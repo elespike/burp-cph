@@ -54,23 +54,10 @@ class CPH_Help:
         </html>"""
     )
 
-    extract_static = HelpPopup(
-        'Using a static value',
+    named_groups = HelpPopup(
+        'Inserting a dynamic value using named groups',
         """<html>
-        To replace your target match(es) with a static value<br>
-        or append a static value to your target match(es),<br>
-        simply enter the desired value in the provided text field.<br>
-        <br>
-        Entering more than one line in this field will cause<br>
-        line separators to be converted to 0x0d0a.<br>
-        <br>
-        One possible usage of this feature is to add HTTP headers<br>
-        to a message. E.g., if your match RegEx is "<b>Host: .+\\r\\n</b>",<br>
-        and you wish to append a new header to the HTTP request,<br>
-        enter the new header followed by a blank line, as such:<br>
-        &nbsp;_____________________<br>
-        |My-Header: value&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
-        |_____________________|
+        TODO
         </html>"""
     )
 
@@ -109,9 +96,9 @@ class CPH_Help:
         or append a value to your target match(es) when<br>
         that value has been cached by a previous CPH tab,<br>
         simply select the desired tab from the dynamic drop-down.<br>
-        <i>NOTE: If the desired tab is not in the drop-down, ensure<br> 
-		that the tab has seen its request at least once.</i><br>
-		<br>
+        <i>NOTE: If the desired tab is not in the drop-down, ensure<br>
+        that the tab has seen its request at least once.</i><br>
+        <br>
         Then, craft a RegEx to extract the desired value<br>
         from the selected tab's cached response.<br>
         Note that disabled tabs will still cache HTTP messages<br>
