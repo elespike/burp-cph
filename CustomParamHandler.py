@@ -263,7 +263,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                         try:
                             messageInfo.setHttpService(self.helpers.buildHttpService(host, int(port), https))
                             httpsvc = messageInfo.getHttpService()
-                            self.logger.info('Re-routing request to host "{}:{}"'.format(
+                            self.logger.info('Tab "{}" is re-routing its request to "{}:{}"'.format(
+                                tab.namepane_txtfield.getText(),
                                 httpsvc.getHost(),
                                 httpsvc.getPort()
                             ))
@@ -516,7 +517,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 try:
                     final_value = match_exp.sub(replace_exp, combined_part)
                 except (re_error, IndexError) as e:
-                    self.logger.error(exc_invalid_regex.format(match_exp + ' or expression ' + replace_exp, e))
+                    self.logger.error(exc_invalid_regex.format(match_exp.pattern + ' or expression ' + replace_exp, e))
                     return msg_as_string
                 self.logger.debug('Found {}, replaced using {} in {}'.format(match_exp.pattern, replace_exp, combined_part))
                 modified_message += final_value
