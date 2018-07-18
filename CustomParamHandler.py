@@ -123,9 +123,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         port  = issuer_config.port
         https = issuer_config.https
 
-        if issuer_config.update_cookies:
-            tab.request = self.update_cookies(tab, host, tab.request)
-
         tab.request = self.update_content_length(tab.request, True)
         tab.param_handl_request_editor.setMessage(tab.request, True)
 
@@ -150,38 +147,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             ))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
-
-    def update_cookies(self, tab, host, request_bytes):
-        req_as_string = self.helpers.bytesToString(request_bytes)
-        headers       = self.helpers.analyzeRequest(request_bytes).getHeaders()
-
-        cookies = self.callbacks.getCookieJarContents()
-        for cookie in cookies:
-            cdom = cookie.getDomain()
-            if host not in cdom:
-                continue
-            self.logger.debug('Cookie domain: {}'.format(cdom))
-            cname = cookie.getName()
-            for header in headers:
-                if header.startswith('Cookie: '):
-                    self.logger.debug('Cookie header:\n{}'.format(header))
-                    if not header.endswith(';'):
-                        header += ';'
-                    match = re_search(r'[ ;]' + cname + r'=.+?[;\r]', header)
-                    if match:
-                        self.logger.debug('Cookie found in request: {}'.format(cname))
-                        cvalue = cookie.getValue()
-                        self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
-                        if cvalue:
-                            exp = re_compile('({}=).+?([;\r])'.format(cname))
-                            req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
-                            request_bytes = self.helpers.stringToBytes(req_as_string)
-                            self.logger.info('Cookie updated on tab "{}": {}={}'.format(
-                                tab.namepane_txtfield.getText(),
-                                cname,
-                                cvalue
-                            ))
-        return request_bytes
 
     def update_content_length(self, message_bytes, is_request):
         if is_request:
@@ -286,9 +251,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     host  = forwarder_config.host
                     port  = forwarder_config.port
                     https = forwarder_config.https
-
-                    if forwarder_config.update_cookies:
-                        request_bytes = self.update_cookies(tab, host, request_bytes)
 
                     # TODO make a checkbox?
                     request_bytes = self.update_content_length(request_bytes, messageIsRequest)
@@ -404,14 +366,14 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             )
             return msg_as_string
 
-        exc_invalid_regex = 'Skipping tab "{}" due to invalid regular expression: {{}}'.format(
+        exc_invalid_regex = 'Skipping tab "{}" due to error in expression {{}}: {{}}'.format(
             tab.namepane_txtfield.getText()
         )
 
         try:
             match_exp = re_compile(ph_target_exp)
-        except re_error:
-            self.logger.exception(exc_invalid_regex.format(ph_target_exp))
+        except re_error as e:
+            self.logger.error(exc_invalid_regex.format(ph_target_exp, e))
             return msg_as_string
 
         # The following code does not remove support for groups,
@@ -458,14 +420,19 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             elif selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
                 find_exp, target_txt = ph_extract_macro_exp, self.final_macro_resp
 
-            # Not checking that find_exp and target_txt aren't empty
-            # because empty matches should be allowed.
+            if not find_exp:
+                self.logger.warning(
+                    'No dynamic value extraction expression specified! Skipping tab "{}".'.format(
+                        tab.namepane_txtfield.getText()
+                    )
+                )
+                return msg_as_string
 
             try:
                 # Making a list to enable multiple iterations.
                 matches = list(re_finditer(find_exp, target_txt))
-            except re_error:
-                self.logger.exception(exc_invalid_regex.format(ph_extract_macro_exp))
+            except re_error as e:
+                self.logger.error(exc_invalid_regex.format(ph_extract_macro_exp, e))
                 return msg_as_string
 
             if not matches:
@@ -522,10 +489,11 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     if match_index < 0:
                         match_index = match_count + match_index
                     match_indices.append(match_index)
-            except ValueError:
-                self.logger.exception(
-                    'Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
-                        tab.namepane_txtfield.getText()
+            except ValueError as e:
+                self.logger.error(
+                    'Ignoring invalid match index or slice on tab "{}" due to {}'.format(
+                        tab.namepane_txtfield.getText(),
+                        e
                     )
                 )
                 continue
@@ -545,7 +513,11 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 combined_part += all_matches[part_index]
             if remaining_indices and part_index == remaining_indices[0]:
                 combined_part += dyn_values
-                final_value = match_exp.sub(replace_exp, combined_part)
+                try:
+                    final_value = match_exp.sub(replace_exp, combined_part)
+                except (re_error, IndexError) as e:
+                    self.logger.error(exc_invalid_regex.format(match_exp + ' or expression ' + replace_exp, e))
+                    return msg_as_string
                 self.logger.debug('Found {}, replaced using {} in {}'.format(match_exp.pattern, replace_exp, combined_part))
                 modified_message += final_value
                 remaining_indices.pop(0)

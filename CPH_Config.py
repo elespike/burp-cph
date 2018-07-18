@@ -249,10 +249,9 @@ class SubTab(JScrollPane, ActionListener):
     CHECKBOX_INDEX  = 0
     TXT_FIELD_INDEX = 1
     # Socket pane component index tuples
-    HOST_INDICES    = (0, 0)
-    PORT_INDICES    = (0, 2)
-    HTTPS_INDICES   = (1, 0)
-    COOKIES_INDICES = (1, 1)
+    HTTPS_INDEX = 0
+    HOST_INDEX  = 1
+    PORT_INDEX  = 3
 
     def __init__(self, cph):
         self._cph = cph
@@ -497,12 +496,7 @@ class OptionsTab(SubTab, ChangeListener):
         # because ActionListener doesn't get triggered on setSelected() -_-
         # Reference: https://stackoverflow.com/questions/9882845
         tab.param_handl_forwarder_socket_pane.setVisible(config['enable_forwarder'])
-        is_selected = config['dynamic_checkbox']
-        tab.param_handl_dynamic_pane.setVisible(is_selected)
-        re_chk = tab.get_exp_pane_component(tab.param_handl_exp_pane_extract_static, ConfigTab.CHECKBOX_INDEX)
-        if is_selected:
-            re_chk.setSelected(True )
-            re_chk.setEnabled (False)
+        tab.param_handl_dynamic_pane         .setVisible(config['dynamic_checkbox'])
 
     def actionPerformed(self, e):
         c = e.getActionCommand()
@@ -869,14 +863,16 @@ class ConfigTab(SubTab):
     REGEX          = 'RegEx'
     TAB_NEW_NAME   = 'Unconfigured'
 
+    BTN_BACK     = '<'
+    BTN_FWD      = '>'
+    BTN_CLONETAB = 'Clone'
+    TAB_NAME     = 'Friendly name:'
+
     # Scope pane
-    BTN_BACK                    = '<'
-    BTN_FWD                     = '>'
-    BTN_CLONETAB                = 'Clone'
-    TAB_NAME                    = 'Friendly name:'
-    MSG_MOD_GROUP               = 'Scoping'
-    MSG_MOD_SCOPE_BURP          = ' Provided their URLs are within Burp Suite\'s scope,'
-    MSG_MOD_TYPES_TO_MODIFY     = 'this tab will work'
+    MSG_MOD_GROUP           = 'Scoping'
+    MSG_MOD_SCOPE_BURP      = ' Provided their URLs are within Burp Suite\'s scope,'
+    MSG_MOD_TYPES_TO_MODIFY = 'this tab will work'
+
     MSG_MOD_COMBO_SCOPE_ALL     = 'on all'
     MSG_MOD_COMBO_SCOPE_SOME    = 'only on'
     MSG_MOD_COMBO_SCOPE_CHOICES = [
@@ -894,11 +890,12 @@ class ConfigTab(SubTab):
     MSG_MOD_SCOPE_SOME = ' containing this expression:'
 
     # Handling pane
-    PARAM_HANDL_GROUP                 = 'Parameter handling'
-    PARAM_HANDL_AUTO_ENCODE           = 'Automatically URL-encode the first line of the request, if modified'
-    PARAM_HANDL_ENABLE_FORWARDER      = 'Change the destination of the request'
-    PARAM_HANDL_MATCH_EXP             = ' 1) Find matches to this expression:'
-    PARAM_HANDL_TARGET                = '2) Target'
+    PARAM_HANDL_GROUP            = 'Parameter handling'
+    PARAM_HANDL_AUTO_ENCODE      = 'Automatically URL-encode the first line of the request, if modified'
+    PARAM_HANDL_ENABLE_FORWARDER = 'Change the destination of the request'
+    PARAM_HANDL_MATCH_EXP        = ' 1) Find matches to this expression:'
+    PARAM_HANDL_TARGET           = '2) Target'
+
     PARAM_HANDL_COMBO_INDICES_FIRST   = 'the first'
     PARAM_HANDL_COMBO_INDICES_EACH    = 'each'
     PARAM_HANDL_COMBO_INDICES_SUBSET  = 'a subset'
@@ -907,9 +904,9 @@ class ConfigTab(SubTab):
         PARAM_HANDL_COMBO_INDICES_EACH  ,
         PARAM_HANDL_COMBO_INDICES_SUBSET,
     ]
-    PARAM_HANDL_MATCH_RANGE          = 'of the matches'
-    PARAM_HANDL_MATCH_SUBSET         = 'Which subset?'
-    PARAM_HANDL_ACTION = ' 3) Replace each target with this expression:'
+    PARAM_HANDL_MATCH_RANGE  = 'of the matches'
+    PARAM_HANDL_MATCH_SUBSET = 'Which subset?'
+    PARAM_HANDL_ACTION       = ' 3) Replace each target with this expression:'
 
     PARAM_HANDL_DYNAMIC_CHECKBOX    = 'The value I need is dynamic'
     PARAM_HANDL_DYNAMIC_DESCRIPTION = '4) In the expression above, use named RegEx groups to insert the following:'
@@ -930,7 +927,7 @@ class ConfigTab(SubTab):
 
     CONFIG_MECHANISM  = namedtuple('CONFIG_MECHANISM' , 'name, getter, setter')
     EXPRESSION_CONFIG = namedtuple('EXPRESSION_CONFIG', 'is_regex, expression')
-    SOCKET_CONFIG     = namedtuple('SOCKET_CONFIG'    , 'host, port, https, update_cookies')
+    SOCKET_CONFIG     = namedtuple('SOCKET_CONFIG'    , 'https, host, port')
 
     def __init__(self, cph, message=None):
         SubTab.__init__(self, cph)
@@ -1005,14 +1002,13 @@ class ConfigTab(SubTab):
 
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
 
-        self.param_handl_exp_pane_extract_static = self.create_expression_pane()
-
         self.param_handl_dynamic_chkbox = JCheckBox(self.PARAM_HANDL_DYNAMIC_CHECKBOX, False)
         self.param_handl_dynamic_chkbox.addActionListener(self)
 
         self.param_handl_dynamic_pane = JPanel(GridBagLayout())
         self.param_handl_dynamic_pane.setVisible(False)
 
+        self.param_handl_exp_pane_extract_static = self.create_expression_pane(checked=True, enabled=False)
         self.param_handl_exp_pane_extract_single = self.create_expression_pane(checked=True, enabled=False)
         self.param_handl_exp_pane_extract_macro  = self.create_expression_pane(label=self.PARAM_HANDL_EXTRACT_MACRO, checked=True, enabled=False)
         self.param_handl_exp_pane_extract_cached = self.create_expression_pane(checked=True, enabled=False)
@@ -1027,9 +1023,11 @@ class ConfigTab(SubTab):
             if resp:
                 self.response = resp
             httpsvc = message.getHttpService()
-            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HOST_INDICES).setText(httpsvc.getHost())
-            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.PORT_INDICES).setValue(httpsvc.getPort())
-            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HTTPS_INDICES).setSelected(httpsvc.getProtocol() == 'https')
+            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HOST_INDEX).setText(httpsvc.getHost())
+            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.PORT_INDEX).setValue(httpsvc.getPort())
+            self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HTTPS_INDEX).setSelected(httpsvc.getProtocol() == 'https')
+            # Using doClick() since it's initially unchecked, which means it'll get checked *and* the ActionListener will trigger.
+            self.param_handl_dynamic_chkbox.doClick()
 
         self.param_handl_request_editor  = self._cph.callbacks.createMessageEditor(None, True)
         self.param_handl_response_editor = self._cph.callbacks.createMessageEditor(None, False)
@@ -1225,27 +1223,15 @@ class ConfigTab(SubTab):
         port_spinner = JSpinner(SpinnerNumberModel(80, 0, 65535, 1))
         port_spinner.setEditor(JSpinner.NumberEditor(port_spinner, '#'))
 
-        https_box  = JCheckBox('HTTPS')
-        cookie_box = JCheckBox('Update cookies using Burp\'s jar')
-        https_box .setSelected(False)
-        cookie_box.setSelected(False)
+        socket_pane = JPanel(FlowLayout(FlowLayout.LEADING))
+        https_box = JCheckBox('HTTPS')
+        https_box.setSelected(False)
+        socket_pane.add(https_box   )
+        socket_pane.add(host_field  )
+        socket_pane.add(JLabel(':') )
+        socket_pane.add(port_spinner)
 
-        hp_pane = JPanel(FlowLayout(FlowLayout.LEADING))
-        hp_pane.add(host_field)
-        hp_pane.add(JLabel(':'))
-        hp_pane.add(port_spinner)
-
-        box_pane = JPanel(FlowLayout(FlowLayout.LEADING))
-        box_pane.add(https_box)
-        box_pane.add(cookie_box)
-
-        parent_pane = JPanel(GridBagLayout())
-        constraints = self.initialize_constraints()
-        parent_pane.add(hp_pane, constraints)
-        constraints.gridy += 1
-        parent_pane.add(box_pane, constraints)
-
-        return parent_pane
+        return socket_pane
 
     def get_exp_pane_component(self, pane, component_index):
         """
@@ -1283,32 +1269,29 @@ class ConfigTab(SubTab):
         self.get_exp_pane_component(pane, ConfigTab.CHECKBOX_INDEX ).setSelected(config.is_regex  )
         self.get_exp_pane_component(pane, ConfigTab.TXT_FIELD_INDEX).setText    (config.expression)
 
-    def get_socket_pane_component(self, pane, indices_tuple):
+    def get_socket_pane_component(self, pane, component_index):
         """
         indices_tuple values:
-        (0, 0): host field
-        (0, 2): port spinner (1 is the ':' JLabel)
-        (1, 0): https checkbox
-        (1, 1): update cookies checkbox
+        0: https checkbox
+        1: host field
+        3: port spinner (2 is the ':' JLabel)
         See create_socket_pane() for further details
         """
-        return pane.getComponent(indices_tuple[0]).getComponent(indices_tuple[1])
+        return pane.getComponent(component_index)
 
     def get_socket_pane_config(self, pane):
         config = self.SOCKET_CONFIG(
-            self.get_socket_pane_component(pane, ConfigTab.HOST_INDICES   ).getText   (),
-            self.get_socket_pane_component(pane, ConfigTab.PORT_INDICES   ).getValue  (),
-            self.get_socket_pane_component(pane, ConfigTab.HTTPS_INDICES  ).isSelected(),
-            self.get_socket_pane_component(pane, ConfigTab.COOKIES_INDICES).isSelected()
+            self.get_socket_pane_component(pane, ConfigTab.HTTPS_INDEX).isSelected(),
+            self.get_socket_pane_component(pane, ConfigTab.HOST_INDEX ).getText   (),
+            self.get_socket_pane_component(pane, ConfigTab.PORT_INDEX ).getValue  ()
         )
         return config
 
     def set_socket_pane_config(self, pane, config):
         config = self.SOCKET_CONFIG(*config)
-        self.get_socket_pane_component(pane, ConfigTab.HOST_INDICES   ).setText    (config.host          )
-        self.get_socket_pane_component(pane, ConfigTab.PORT_INDICES   ).setValue   (config.port          )
-        self.get_socket_pane_component(pane, ConfigTab.HTTPS_INDICES  ).setSelected(config.https         )
-        self.get_socket_pane_component(pane, ConfigTab.COOKIES_INDICES).setSelected(config.update_cookies)
+        self.get_socket_pane_component(pane, ConfigTab.HTTPS_INDEX).setSelected(config.https)
+        self.get_socket_pane_component(pane, ConfigTab.HOST_INDEX ).setText    (config.host )
+        self.get_socket_pane_component(pane, ConfigTab.PORT_INDEX ).setValue   (config.port )
 
     def build_msg_mod_pane(self, msg_mod_pane):
         msg_mod_req_or_resp_pane = JPanel(FlowLayout(FlowLayout.LEADING))
@@ -1533,10 +1516,6 @@ class ConfigTab(SubTab):
         if c == self.PARAM_HANDL_DYNAMIC_CHECKBOX:
             is_selected = self.param_handl_dynamic_chkbox.isSelected()
             self.param_handl_dynamic_pane.setVisible(is_selected)
-            re_chk = self.get_exp_pane_component(self.param_handl_exp_pane_extract_static, ConfigTab.CHECKBOX_INDEX)
-            if is_selected:
-                re_chk.setSelected(True )
-            re_chk.setEnabled(not is_selected)
 
         if c in self.PARAM_HANDL_COMBO_EXTRACT_CHOICES:
             SubTab.show_card(self.param_handl_cardpanel_static_or_extract, c)
