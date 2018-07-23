@@ -128,15 +128,15 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
-            resp_bytes = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
+            response_bytes = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
             self.logger.debug('Issued configured request from tab "{}" to host "{}:{}"'.format(
                 tab.namepane_txtfield.getText(),
                 httpsvc.getHost(),
                 httpsvc.getPort()
             ))
-            if resp_bytes:
-                tab.param_handl_response_editor.setMessage(resp_bytes, False)
-                tab.response = resp_bytes
+            if response_bytes:
+                tab.param_handl_response_editor.setMessage(response_bytes, False)
+                tab.response = response_bytes
                 self.logger.debug('Got response!')
         # Generic except because misc. Java exceptions might occur.
         except:
@@ -275,8 +275,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             messageInfo.setRequest(request_bytes)
 
         if not messageIsRequest:
-            resp_bytes     = messageInfo.getResponse()
-            resp_as_string = self.helpers.bytesToString(resp_bytes)
+            response_bytes = messageInfo.getResponse()
+            resp_as_string = self.helpers.bytesToString(response_bytes)
             original_resp  = resp_as_string
 
             for tab in self.maintab.get_config_tabs():
@@ -288,37 +288,33 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     ))
 
                     resp_as_string = self.modify_message(tab, resp_as_string)
-                    resp_bytes = self.helpers.stringToBytes(resp_as_string)
-                    resp_bytes = self.update_content_length(resp_bytes, messageIsRequest)
-                    resp_as_string = self.helpers.bytesToString(resp_bytes)
+                    response_bytes = self.helpers.stringToBytes(resp_as_string)
+                    response_bytes = self.update_content_length(response_bytes, messageIsRequest)
+                    resp_as_string = self.helpers.bytesToString(response_bytes)
 
                     if resp_as_string != original_resp:
                         tab.emv_tab.add_table_row(dt.now().time(), False, original_resp, resp_as_string)
 
-            messageInfo.setResponse(resp_bytes)
+            messageInfo.setResponse(response_bytes)
 
             for working_tab in self.maintab.get_config_tabs():
                 selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
-                working_tab.param_handl_combo_cached.removeAllItems()
                 if self.is_in_cph_scope(req_as_string , True , working_tab)\
                 or self.is_in_cph_scope(resp_as_string, False, working_tab):
                     working_tab.cached_request  = request_bytes
-                    working_tab.cached_response = resp_bytes
+                    working_tab.cached_response = response_bytes
                     self.logger.debug('Messages cached for tab {}!'.format(
                         working_tab.namepane_txtfield.getText()
                     ))
+                # If this tab is set to extract a value from one of the previous tabs,
+                # update its cached message panes with that tab's cached messages.
                 for previous_tab in self.maintab.get_config_tabs():
-                    if working_tab == previous_tab:
+                    if previous_tab == working_tab:
                         break
-                    if previous_tab.cached_request is None or previous_tab.cached_response is None:
-                        continue
-                    empty_req, empty_resp = previous_tab.initialize_req_resp()
-                    if previous_tab.cached_request == empty_req or previous_tab.cached_response == empty_resp:
-                        continue
                     item = previous_tab.namepane_txtfield.getText()
-                    working_tab.param_handl_combo_cached.addItem(item)
                     if item == selected_item:
-                        working_tab.param_handl_combo_cached.setSelectedItem(item)
+                        working_tab.param_handl_cached_req_viewer .setMessage(previous_tab.cached_request , True)
+                        working_tab.param_handl_cached_resp_viewer.setMessage(previous_tab.cached_response, False)
 
     def is_in_cph_scope(self, msg_as_string, is_request, tab):
         rms_scope_all  = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_ALL
