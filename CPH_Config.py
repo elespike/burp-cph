@@ -11,6 +11,7 @@ from logging import (
 )
 from collections import OrderedDict as odict, namedtuple
 from difflib     import unified_diff
+from hashlib     import sha256
 from itertools   import product
 from json        import dump, dumps, load, loads
 from re          import escape as re_escape
@@ -72,14 +73,15 @@ from javax.swing.undo        import UndoManager
 class MainTab(ITab, ChangeListener):
     mainpane = JTabbedPane()
 
-    # This is set during __init__
+    # These are set during __init__
+    _cph   = None
     logger = None
 
     def __init__(self, cph):
         MainTab.mainpane.addChangeListener(self)
-        self._cph = cph
-        MainTab.logger = cph.logger
-        self.options_tab = OptionsTab(cph)
+        MainTab._cph     = cph
+        MainTab.logger   = cph.logger
+        self.options_tab = OptionsTab()
         MainTab.mainpane.add('Options', self.options_tab)
         self._add_sign = unichr(0x002b)  # addition sign
         MainTab.mainpane.add(self._add_sign, JPanel())
@@ -93,7 +95,7 @@ class MainTab(ITab, ChangeListener):
 
         # Ctrl+N only on key released
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 2, True), 'add_config_tab')
-        MainTab.mainpane.getActionMap().put('add_config_tab', Action(lambda: ConfigTab(self._cph)))
+        MainTab.mainpane.getActionMap().put('add_config_tab', Action(lambda: ConfigTab()))
 
         # Ctrl+Shift+N only on key released
         MainTab.mainpane.getInputMap(1).put(KeyStroke.getKeyStroke(78, 3, True), 'clone_tab')
@@ -165,16 +167,16 @@ class MainTab(ITab, ChangeListener):
     def getTabCaption():
         return 'CPH Config'
 
-    @staticmethod
-    def getOptionsTab():
-        return MainTab.mainpane.getComponentAt(0)
-
     def getUiComponent(self):
         return MainTab.mainpane
 
     def add_config_tab(self, messages):
         for message in messages:
-            ConfigTab(self._cph, message)
+            ConfigTab(message)
+
+    @staticmethod
+    def get_options_tab():
+        return MainTab.mainpane.getComponentAt(0)
 
     @staticmethod
     def get_config_tabs():
@@ -222,7 +224,7 @@ class MainTab(ITab, ChangeListener):
         tab.namepane_txtfield.tab_label.setText(tab_name)
         tab.namepane_txtfield.setText(tab_name)
         emv_tab_index = MainTab.mainpane.indexOfComponent(tab) - 1
-        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(emv_tab_index, tab_name)
+        MainTab.get_options_tab().emv_tab_pane.setTitleAt(emv_tab_index, tab_name)
 
     @staticmethod
     def close_tab(tab_index=None):
@@ -235,7 +237,7 @@ class MainTab(ITab, ChangeListener):
         if tab_count == 3 or tab_index == tab_count - 2:
             MainTab.mainpane.setSelectedIndex(tab_count - 3)
         MainTab.mainpane.remove(tab_index)
-        MainTab.getOptionsTab().emv_tab_pane.remove(true_index)
+        MainTab.get_options_tab().emv_tab_pane.remove(true_index)
 
         # If the closed tab was selected in subsequent tabs' combo_cached, remove selection.
         for i, subsequent_tab in enumerate(MainTab.get_config_tabs()):
@@ -254,7 +256,7 @@ class MainTab(ITab, ChangeListener):
             index = MainTab.mainpane.getSelectedIndex()
             if hasattr(self, '_add_sign') and MainTab.mainpane.getTitleAt(index) == self._add_sign:
                 MainTab.mainpane.setSelectedIndex(0)
-                ConfigTab(self._cph)
+                ConfigTab()
 
 
 class SubTab(JScrollPane, ActionListener):
@@ -269,8 +271,9 @@ class SubTab(JScrollPane, ActionListener):
     HOST_INDEX  = 1
     PORT_INDEX  = 3
 
-    def __init__(self, cph):
-        self._cph = cph
+    CONFIG_MECHANISM = namedtuple('CONFIG_MECHANISM' , 'name, getter, setter')
+
+    def __init__(self):
         self._main_tab_pane = JPanel(GridBagLayout())
         self.setViewportView(self._main_tab_pane)
         self.getVerticalScrollBar().setUnitIncrement(16)
@@ -347,14 +350,19 @@ class OptionsTab(SubTab, ChangeListener):
     BTN_EMV            = 'Show EMV'
     CHKBOX_PANE        = 'Tool scope settings'
     QUICKSTART_PANE    = 'Quickstart guide'
-    CONFIGNAME_QUICK   = 'quick'
-    CONFIGNAME_OPTIONS = 'options'
 
-    def __init__(self, cph):
-        SubTab.__init__(self, cph)
-        self.loaded_config = odict()
+    FILEFILTER = FileNameExtensionFilter('JSON', ['json'])
 
-        self.filefilter = FileNameExtensionFilter('JSON', ['json'])
+    s = sha256()
+    s.update('quick')
+    CONFIGNAME_QUICK = s.hexdigest()
+    s = sha256()
+    s.update('options')
+    CONFIGNAME_OPTIONS = s.hexdigest()
+    del s
+
+    def __init__(self):
+        SubTab.__init__(self)
 
         btn_docs = JButton(self.BTN_DOCS)
         btn_docs.addActionListener(self)
@@ -382,14 +390,8 @@ class OptionsTab(SubTab, ChangeListener):
             dbg : DEBUG  ,
         }
 
-        # TODO load here?
-        # options_config = loads(self._cph.callbacks.loadExtensionSetting(OptionsTab.CONFIGNAME_OPTIONS))
-        # default_verbosity = options_config.get('default_verbosity')
-        # if not default_verbosity:
-        default_verbosity = info
-
         self.verbosity_level_lbl = JLabel(getLevelName(INFO))
-        self.verbosity_spinner = JSpinner(SpinnerNumberModel(default_verbosity, err, dbg, 1))
+        self.verbosity_spinner = JSpinner(SpinnerNumberModel(info, err, dbg, 1))
         self.verbosity_spinner.addChangeListener(self)
 
         verbosity_pane = JPanel(FlowLayout(FlowLayout.LEADING))
@@ -421,20 +423,6 @@ class OptionsTab(SubTab, ChangeListener):
         constraints.gridx = 1
         btn_pane.add(btn_emv, constraints)
 
-        # tools_config = options_config.get('tools_config')
-        # if not tools_config:
-            # tools_config = {
-                # 'Proxy'    : True ,
-                # 'Target'   : False,
-                # 'Spider'   : False,
-                # 'Repeater' : True ,
-                # 'Sequencer': False,
-                # 'Intruder' : False,
-                # 'Scanner'  : False,
-                # 'Extender' : False,
-            # }
-
-        # TODO
         self.chkbox_proxy     = JCheckBox('Proxy'    , True )
         self.chkbox_target    = JCheckBox('Target'   , False)
         self.chkbox_spider    = JCheckBox('Spider'   , False)
@@ -492,27 +480,85 @@ class OptionsTab(SubTab, ChangeListener):
         constraints.weighty = 1
         self._main_tab_pane.add(quickstart_pane, constraints)
 
+        self.config_mechanisms = [
+            SubTab.CONFIG_MECHANISM(
+                'verbosity',
+                self.verbosity_spinner.getValue,
+                lambda cv: self.verbosity_spinner.setValue(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_proxy',
+                self.chkbox_proxy.isSelected,
+                lambda cv: self.chkbox_proxy.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_target',
+                self.chkbox_target.isSelected,
+                lambda cv: self.chkbox_target.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_spider',
+                self.chkbox_spider.isSelected,
+                lambda cv: self.chkbox_spider.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_repeater',
+                self.chkbox_repeater.isSelected,
+                lambda cv: self.chkbox_repeater.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_sequencer',
+                self.chkbox_sequencer.isSelected,
+                lambda cv: self.chkbox_sequencer.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_intruder',
+                self.chkbox_intruder.isSelected,
+                lambda cv: self.chkbox_intruder.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_scanner',
+                self.chkbox_scanner.isSelected,
+                lambda cv: self.chkbox_scanner.setSelected(cv)
+            ),
+            SubTab.CONFIG_MECHANISM(
+                'chkbox_extender',
+                self.chkbox_extender.isSelected,
+                lambda cv: self.chkbox_extender.setSelected(cv)
+            ),
+        ]
+
     def stateChanged(self, e):
         if e.getSource() == self.verbosity_spinner:
             level = self.verbosity_translator[self.verbosity_spinner.getValue()]
             MainTab.logger.setLevel(level)
             self.verbosity_level_lbl.setText(getLevelName(level))
 
-    def set_tab_values(self, tab, tab_name, config):
-        MainTab.set_tab_name(tab, tab_name)
+    def set_tab_values(self, config, tab, tab_name=''):
+        warn = False
         for cm in tab.config_mechanisms:
             if cm.name in config:
                 cm.setter(config[cm.name])
             else:
-                MainTab.logger.warning(
-                    'Your configuration may have been generated by a previous version of CPH. Expect the unexpected.'
-                )
+                warn = True
                 continue
+        if warn:
+            MainTab.logger.warning(
+                'Your configuration is corrupt or was generated by an old version of CPH. Expect the unexpected.'
+            )
+
+        if isinstance(tab, OptionsTab):
+            return
+
+        MainTab.set_tab_name(tab, tab_name)
         # A couple hacks to avoid implementing an ItemListener just for this,
         # because ActionListener doesn't get triggered on setSelected() -_-
         # Reference: https://stackoverflow.com/questions/9882845
-        tab.param_handl_forwarder_socket_pane.setVisible(config['enable_forwarder'])
-        tab.param_handl_dynamic_pane         .setVisible(config['dynamic_checkbox'])
+        try:
+            tab.param_handl_forwarder_socket_pane.setVisible(config['enable_forwarder'])
+            tab.param_handl_dynamic_pane         .setVisible(config['dynamic_checkbox'])
+        except KeyError:
+            return
 
     def actionPerformed(self, e):
         c = e.getActionCommand()
@@ -546,25 +592,25 @@ class OptionsTab(SubTab, ChangeListener):
 
                 if c == self.BTN_QUICKLOAD:
                     try:
-                        self.loaded_config = loads(
-                            self._cph.callbacks.loadExtensionSetting(OptionsTab.CONFIGNAME_QUICK),
+                        config = loads(
+                            MainTab._cph.callbacks.loadExtensionSetting(OptionsTab.CONFIGNAME_QUICK),
                             object_pairs_hook=odict
                         )
-                        self.load_config(replace_config_tabs)
+                        self.load_config(config, replace_config_tabs)
                         MainTab.logger.info('Configuration quickloaded.')
                     except StandardError:
                         MainTab.logger.exception('Error during quickload.')
 
                 if c == self.BTN_IMPORTCONFIG:
                     fc = JFileChooser()
-                    fc.setFileFilter(self.filefilter)
+                    fc.setFileFilter(OptionsTab.FILEFILTER)
                     result = fc.showOpenDialog(self)
                     if result == JFileChooser.APPROVE_OPTION:
                         fpath = fc.getSelectedFile().getPath()
                         try:
                             with open(fpath, 'r') as f:
-                                self.loaded_config = load(f, object_pairs_hook=odict)
-                            self.load_config(replace_config_tabs)
+                                config = load(f, object_pairs_hook=odict)
+                            self.load_config(config, replace_config_tabs)
                             MainTab.logger.info('Configuration imported from "{}".'.format(fpath))
                         except StandardError:
                             MainTab.logger.exception('Error importing config from "{}".'.format(fpath))
@@ -576,7 +622,7 @@ class OptionsTab(SubTab, ChangeListener):
         if c == self.BTN_QUICKSAVE:
             try:
                 full_config = self.prepare_to_save_all()
-                self._cph.callbacks.saveExtensionSetting(OptionsTab.CONFIGNAME_QUICK, dumps(full_config))
+                MainTab._cph.callbacks.saveExtensionSetting(OptionsTab.CONFIGNAME_QUICK, dumps(full_config))
                 MainTab.logger.info('Configuration quicksaved.')
             except StandardError:
                 MainTab.logger.exception('Error during quicksave.')
@@ -602,7 +648,7 @@ class OptionsTab(SubTab, ChangeListener):
                 break
             if tabcount > 0:
                 fc = JFileChooser()
-                fc.setFileFilter(self.filefilter)
+                fc.setFileFilter(OptionsTab.FILEFILTER)
                 result = fc.showSaveDialog(self)
                 if result == JFileChooser.APPROVE_OPTION:
                     fpath = fc.getSelectedFile().getPath()
@@ -618,15 +664,20 @@ class OptionsTab(SubTab, ChangeListener):
                 if result == JFileChooser.CANCEL_OPTION:
                     MainTab.logger.info('User canceled configuration export to file.')
 
-    def load_config(self, replace_config_tabs):
-        loaded_tab_names  = self.loaded_config.keys()
+    def load_config(self, config, replace_config_tabs=False):
+        loaded_tab_names = config.keys()
+
+        if OptionsTab.CONFIGNAME_OPTIONS in loaded_tab_names:
+            self.set_tab_values(config[OptionsTab.CONFIGNAME_OPTIONS], MainTab.get_options_tab())
+            loaded_tab_names.remove(OptionsTab.CONFIGNAME_OPTIONS)
+
         tabs_left_to_load = list(loaded_tab_names)
         tabs_to_remove    = {}
 
         # Modify existing and mark for purge where applicable
         for tab_name, tab in product(loaded_tab_names, MainTab.get_config_tabs()):
             if tab_name == tab.namepane_txtfield.getText():
-                self.set_tab_values(tab, tab_name, self.loaded_config[tab_name])
+                self.set_tab_values(config[tab_name], tab, tab_name)
                 if tab_name in tabs_left_to_load:
                     tabs_left_to_load.remove(tab_name)
                 tabs_to_remove[tab] = False
@@ -636,10 +687,10 @@ class OptionsTab(SubTab, ChangeListener):
         # Import and purge if applicable
         for tab, tab_marked in tabs_to_remove.items():
             if tab_marked and replace_config_tabs:
-                MainTab.getOptionsTab().emv_tab_pane.remove(tab.emv_tab)
+                MainTab.get_options_tab().emv_tab_pane.remove(tab.emv_tab)
                 MainTab.mainpane.remove(tab)
         for tab_name in tabs_left_to_load:
-            self.set_tab_values(ConfigTab(self._cph), tab_name, self.loaded_config[tab_name])
+            self.set_tab_values(config[tab_name], ConfigTab(), tab_name)
 
         # No need to proceed if there's only 1 tab.
         # This is also the case when cloning a tab.
@@ -660,6 +711,7 @@ class OptionsTab(SubTab, ChangeListener):
         full_config = odict()
         for tab in MainTab.get_config_tabs():
             full_config[tab.namepane_txtfield.getText()] = self.prepare_to_save_tab(tab)
+        full_config[OptionsTab.CONFIGNAME_OPTIONS] = self.prepare_to_save_tab(MainTab.get_options_tab())
         return full_config
 
     def prepare_to_save_tab(self, tab):
@@ -671,8 +723,7 @@ class OptionsTab(SubTab, ChangeListener):
 
 class EMVTab(JSplitPane, ListSelectionListener):
     MAX_ITEMS = 32
-    def __init__(self, configtab):
-        self.configtab = configtab
+    def __init__(self):
         self.updating = False
         self.selected_index = -1
 
@@ -686,9 +737,9 @@ class EMVTab(JSplitPane, ListSelectionListener):
         table_pane.setViewportView(self.table)
         table_pane.getVerticalScrollBar().setUnitIncrement(16)
 
-        self.diff_field     = self.configtab._cph.callbacks.createMessageEditor(None, False)
-        self.original_field = self.configtab._cph.callbacks.createMessageEditor(None, False)
-        self.modified_field = self.configtab._cph.callbacks.createMessageEditor(None, False)
+        self.diff_field     = MainTab._cph.callbacks.createMessageEditor(None, False)
+        self.original_field = MainTab._cph.callbacks.createMessageEditor(None, False)
+        self.modified_field = MainTab._cph.callbacks.createMessageEditor(None, False)
 
         self.viewer = JSplitPane()
         self.viewer.setLeftComponent(self.original_field.getComponent())
@@ -855,7 +906,7 @@ class ConfigTabNameField(JTextField, KeyListener):
         self_index = MainTab.mainpane.getSelectedIndex()
         true_index = self_index - 1 # because of the Options tab
         self.tab_label.setText(self.getText())
-        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(true_index, self.getText())
+        MainTab.get_options_tab().emv_tab_pane.setTitleAt(true_index, self.getText())
         for i, subsequent_tab in enumerate(MainTab.get_config_tabs()):
             if i <= true_index:
                 continue
@@ -959,12 +1010,11 @@ class ConfigTab(SubTab):
     PARAM_HANDL_EXTRACT_CACHED_PRE  = 'Extract the value from'
     PARAM_HANDL_EXTRACT_CACHED_POST = '\'s cached response with this expression:'
 
-    CONFIG_MECHANISM  = namedtuple('CONFIG_MECHANISM' , 'name, getter, setter')
     EXPRESSION_CONFIG = namedtuple('EXPRESSION_CONFIG', 'is_regex, expression')
     SOCKET_CONFIG     = namedtuple('SOCKET_CONFIG'    , 'https, host, port')
 
-    def __init__(self, cph, message=None):
-        SubTab.__init__(self, cph)
+    def __init__(self, message=None):
+        SubTab.__init__(self)
 
         index = MainTab.mainpane.getTabCount() - 1
         MainTab.mainpane.add(self, index)
@@ -1063,13 +1113,13 @@ class ConfigTab(SubTab):
             # Using doClick() since it's initially unchecked, which means it'll get checked *and* the ActionListener will trigger.
             self.param_handl_dynamic_chkbox.doClick()
 
-        self.param_handl_request_editor  = self._cph.callbacks.createMessageEditor(None, True)
-        self.param_handl_response_editor = self._cph.callbacks.createMessageEditor(None, False)
+        self.param_handl_request_editor  = MainTab._cph.callbacks.createMessageEditor(None, True)
+        self.param_handl_response_editor = MainTab._cph.callbacks.createMessageEditor(None, False)
         self.param_handl_request_editor .setMessage(self.request , True)
         self.param_handl_response_editor.setMessage(self.response, False)
 
-        self.param_handl_cached_req_viewer  = self._cph.callbacks.createMessageEditor(None, False)
-        self.param_handl_cached_resp_viewer = self._cph.callbacks.createMessageEditor(None, False)
+        self.param_handl_cached_req_viewer  = MainTab._cph.callbacks.createMessageEditor(None, False)
+        self.param_handl_cached_resp_viewer = MainTab._cph.callbacks.createMessageEditor(None, False)
         self.param_handl_cached_req_viewer .setMessage(self.cached_request , True)
         self.param_handl_cached_resp_viewer.setMessage(self.cached_response, False)
 
@@ -1127,106 +1177,106 @@ class ConfigTab(SubTab):
         constraints.weighty = 1
         self._main_tab_pane.add(param_handl_layout_pane, constraints)
 
-        self.emv_tab = EMVTab(self)
-        MainTab.getOptionsTab().emv_tab_pane.add(self.namepane_txtfield.getText(), self.emv_tab)
+        self.emv_tab = EMVTab()
+        MainTab.get_options_tab().emv_tab_pane.add(self.namepane_txtfield.getText(), self.emv_tab)
 
         self.config_mechanisms = [
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'enabled',
                 self.tabtitle_pane.enable_chkbox.isSelected,
                 lambda cv: self.tabtitle_pane.enable_chkbox.setSelected(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'modify_scope_choice_index',
                 self.msg_mod_combo_scope.getSelectedIndex,
                 lambda cv: self.msg_mod_combo_scope.setSelectedIndex(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'modify_type_choice_index',
                 self.msg_mod_combo_type.getSelectedIndex,
                 lambda cv: self.msg_mod_combo_type.setSelectedIndex(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'modify_expression',
                 lambda   : self.get_exp_pane_config(self.msg_mod_exp_pane_scope    ),
                 lambda cv: self.set_exp_pane_config(self.msg_mod_exp_pane_scope, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'auto_encode',
                 self.param_handl_auto_encode_chkbox.isSelected,
                 lambda cv: self.param_handl_auto_encode_chkbox.setSelected(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'enable_forwarder',
                 self.param_handl_enable_forwarder_chkbox.isSelected,
                 lambda cv: self.param_handl_enable_forwarder_chkbox.setSelected(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'forwarder',
                 lambda   : self.get_socket_pane_config(self.param_handl_forwarder_socket_pane    ),
                 lambda cv: self.set_socket_pane_config(self.param_handl_forwarder_socket_pane, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'match_expression',
                 lambda   : self.get_exp_pane_config(self.param_handl_exp_pane_target    ),
                 lambda cv: self.set_exp_pane_config(self.param_handl_exp_pane_target, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'indices_choice_index',
                 self.param_handl_combo_indices.getSelectedIndex,
                 lambda cv: self.param_handl_combo_indices.setSelectedIndex(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'extract_choice_index',
                 self.param_handl_combo_extract.getSelectedIndex,
                 lambda cv: self.param_handl_combo_extract.setSelectedIndex(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'match_indices',
                 self.param_handl_txtfield_match_indices.getText,
                 lambda cv: self.param_handl_txtfield_match_indices.setText(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'static_expression',
                 lambda   : self.get_exp_pane_config(self.param_handl_exp_pane_extract_static    ),
                 lambda cv: self.set_exp_pane_config(self.param_handl_exp_pane_extract_static, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'dynamic_checkbox',
                 self.param_handl_dynamic_chkbox.isSelected,
                 lambda cv: self.param_handl_dynamic_chkbox.setSelected(cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'single_expression',
                 lambda   : self.get_exp_pane_config(self.param_handl_exp_pane_extract_single    ),
                 lambda cv: self.set_exp_pane_config(self.param_handl_exp_pane_extract_single, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'issuer',
                 lambda   : self.get_socket_pane_config(self.param_handl_issuer_socket_pane    ),
                 lambda cv: self.set_socket_pane_config(self.param_handl_issuer_socket_pane, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'single_request',
-                lambda   : self._cph.helpers.bytesToString(self.param_handl_request_editor.getMessage()),
-                lambda cv: self.param_handl_request_editor.setMessage(self._cph.helpers.stringToBytes(cv), True)
+                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_request_editor.getMessage()),
+                lambda cv: self.param_handl_request_editor.setMessage(MainTab._cph.helpers.stringToBytes(cv), True)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'single_response',
-                lambda   : self._cph.helpers.bytesToString(self.param_handl_response_editor.getMessage()),
-                lambda cv: self.param_handl_response_editor.setMessage(self._cph.helpers.stringToBytes(cv), False)
+                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_response_editor.getMessage()),
+                lambda cv: self.param_handl_response_editor.setMessage(MainTab._cph.helpers.stringToBytes(cv), False)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'macro_expression',
                 lambda   : self.get_exp_pane_config(self.param_handl_exp_pane_extract_macro    ),
                 lambda cv: self.set_exp_pane_config(self.param_handl_exp_pane_extract_macro, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'cached_expression',
                 lambda   : self.get_exp_pane_config(self.param_handl_exp_pane_extract_cached    ),
                 lambda cv: self.set_exp_pane_config(self.param_handl_exp_pane_extract_cached, cv)
             ),
-            ConfigTab.CONFIG_MECHANISM(
+            SubTab.CONFIG_MECHANISM(
                 'cached_selection',
                 self.param_handl_combo_cached.getSelectedItem,
                 lambda cv: self.param_handl_combo_cached.setSelectedItem(cv)
@@ -1234,7 +1284,7 @@ class ConfigTab(SubTab):
         ]
 
     def initialize_req_resp(self):
-        return [], self._cph.helpers.stringToBytes(''.join([' \r\n' for i in range(6)]))
+        return [], MainTab._cph.helpers.stringToBytes(''.join([' \r\n' for i in range(6)]))
 
     def create_expression_pane(self, label=None, checked=False, enabled=True):
         field = JTextField()
@@ -1467,13 +1517,13 @@ class ConfigTab(SubTab):
             return
 
         MainTab.mainpane.setSelectedIndex(0)
-        emv_sel_tab = MainTab.getOptionsTab().emv_tab_pane.getSelectedComponent()
+        emv_sel_tab = MainTab.get_options_tab().emv_tab_pane.getSelectedComponent()
         current_index = MainTab.mainpane.indexOfComponent(tab)
         combo_cached_item = tab.param_handl_combo_cached.getSelectedItem()
 
         if current_index > desired_index:
             MainTab.mainpane.add(tab, desired_index)
-            MainTab.getOptionsTab().emv_tab_pane.add(tab.emv_tab, desired_index - 1)
+            MainTab.get_options_tab().emv_tab_pane.add(tab.emv_tab, desired_index - 1)
             # Rearrange combo_cached appropriately.
             for i, other_tab in enumerate(MainTab.get_config_tabs()):
                 if i < desired_index - 1:
@@ -1490,7 +1540,7 @@ class ConfigTab(SubTab):
         else:
             # I've no idea why +1 is needed here. =)
             MainTab.mainpane.add(tab, desired_index + 1)
-            MainTab.getOptionsTab().emv_tab_pane.add(tab.emv_tab, desired_index)
+            MainTab.get_options_tab().emv_tab_pane.add(tab.emv_tab, desired_index)
             # Rearrange combo_cached appropriately.
             for i, other_tab in enumerate(MainTab.get_config_tabs()):
                 if i < current_index - 1:
@@ -1506,11 +1556,11 @@ class ConfigTab(SubTab):
 
         MainTab.mainpane.setTabComponentAt(desired_index, tab.tabtitle_pane)
         MainTab.mainpane.setSelectedIndex (desired_index)
-        MainTab.getOptionsTab().emv_tab_pane.setTitleAt(
+        MainTab.get_options_tab().emv_tab_pane.setTitleAt(
             desired_index - 1,
             tab.namepane_txtfield.getText()
         )
-        MainTab.getOptionsTab().emv_tab_pane.setSelectedComponent(emv_sel_tab)
+        MainTab.get_options_tab().emv_tab_pane.setSelectedComponent(emv_sel_tab)
         ConfigTab.restore_combo_cached_selection(tab, combo_cached_item)
 
     @staticmethod
@@ -1526,11 +1576,10 @@ class ConfigTab(SubTab):
     def clone_tab(self):
         desired_index = MainTab.mainpane.getSelectedIndex() + 1
 
-        newtab = ConfigTab(self._cph)
+        newtab = ConfigTab()
         MainTab.set_tab_name(newtab, self.namepane_txtfield.getText())
-        config = MainTab.getOptionsTab().prepare_to_save_tab(self)
-        MainTab.getOptionsTab().loaded_config = {self.namepane_txtfield.getText(): config}
-        MainTab.getOptionsTab().load_config(False)
+        config = MainTab.get_options_tab().prepare_to_save_tab(self)
+        MainTab.get_options_tab().load_config({self.namepane_txtfield.getText(): config})
 
         ConfigTab.move_tab(newtab, desired_index)
 
@@ -1614,7 +1663,7 @@ class ConfigTab(SubTab):
             self.param_handl_cached_resp_viewer.setMessage(resp, False)
 
         if c == self.PARAM_HANDL_BTN_ISSUE:
-            start_new_thread(self._cph.issue_request, (self,))
+            start_new_thread(MainTab._cph.issue_request, (self,))
 
         if c == self.BTN_BACK:
             ConfigTab.move_tab_back(self)

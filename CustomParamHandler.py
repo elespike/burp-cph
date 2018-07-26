@@ -47,7 +47,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.initialize_logger()
 
     def initialize_logger(self):
-        fmt = '%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
+        fmt = '\n%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s'
         datefmt = '%H:%M:%S'
         formatter = Formatter(fmt=fmt, datefmt=datefmt)
 
@@ -252,7 +252,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     port  = forwarder_config.port
                     https = forwarder_config.https
 
-                    # TODO make a checkbox?
+                    # TODO test whether updating content-length is needed
                     request_bytes = self.update_content_length(request_bytes, messageIsRequest)
                     req_as_string = self.helpers.bytesToString(request_bytes)
 
