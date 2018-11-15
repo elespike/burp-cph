@@ -1,12 +1,12 @@
 <p>This extension provides a simple way to modify any part of an HTTP message,
-allowing manipulation with surgical precision even (and especially) when using 
-macros. Typically, macros only support HTTP parameters (name=value), but with 
+allowing manipulation with surgical precision even when using macros.
+Typically, macros only support HTTP parameters (name=value), but with 
 this extension anything can be targeted as if it were a parameter.</p>
 <p>Features include:</p>
 
 <ul>
-  <li>Automatic modification of requests, responses, or both, based on scope and pattern matching.</li>
-  <li>Find and replace/append, with support for regular expressions.</li>
+  <li>Automatic modification of requests and/or responses, based on scope and pattern matching.</li>
+  <li>Find and replace, with support for regular expressions.</li>
   <li>Scoping to specific Burp Suite tools.</li>
   <li>Targeting specific matches (only first, all matches, or hand-picked).</li>
   <li>Chaining and ordering of modifications, and the ability to base next-in-line modifications off previous responses.</li>
@@ -15,13 +15,13 @@ this extension anything can be targeted as if it were a parameter.</p>
   </li>
     <ul>
       <li>Quicksave/quickload (persists between Burp/Extender sessions).</li>
-      <li>Import/export from and to file.</li>
+      <li>Import/export from and to JSON files.</li>
     </ul>
-  <li>After running a macro, extract replacement value from its final response.</li>
+  <li>After running a macro, extract a replacement value from its final response.</li>
   <li>Modifying each request/response <em>within</em> a macro.</li>
 </ul>
 
-<p>Usage documentation: <a href="https://elespike.github.io/burp-cph/">elespike.github.io/burp-cph/</a>.</p>
 <p>Source and bug reporting: <a href="https://github.com/elespike/burp-cph">github.com/elespike/burp-cph</a>.</p>
+<p>Wiki: <a href="https://github.com/elespike/burp-cph/wiki">github.com/elespike/burp-cph/wiki</a>.</p>
 
 <p>Requires Jython version 2.7.0</p>

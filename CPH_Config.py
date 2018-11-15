@@ -261,7 +261,7 @@ class MainTab(ITab, ChangeListener):
 
 class SubTab(JScrollPane, ActionListener):
     BTN_HELP = '?'
-    DOCS_URL = 'https://elespike.github.io/burp-cph/'
+    DOCS_URL = 'https://github.com/elespike/burp-cph/wiki'
     INSETS   = Insets(2, 4, 2, 4)
     # Expression pane component indices
     CHECKBOX_INDEX  = 0
@@ -312,15 +312,18 @@ class SubTab(JScrollPane, ActionListener):
 
 
     class HelpButton(JButton):
-        def __init__(self, title, message, link=''):
+        # From CPH_Help.py:
+        # HelpPopup = namedtuple('HelpPopup', 'title, message, url')
+        def __init__(self, help_popup=None):
             super(JButton, self).__init__()
-            self.title   = title
-            self.message = JLabel(message)
-            self.message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
+            self.title, self.message = '', ''
+            self.url = SubTab.DOCS_URL
 
-            self.link = SubTab.DOCS_URL
-            if link:
-                self.link = link
+            if help_popup is not None:
+                self.title   = help_popup.title
+                self.message = JLabel(help_popup.message)
+                self.message.setFont(Font(Font.MONOSPACED, Font.PLAIN, 14))
+                self.url = help_popup.url
 
             self.setText(SubTab.BTN_HELP)
             self.setFont(Font(Font.SANS_SERIF, Font.BOLD, 14))
@@ -337,7 +340,7 @@ class SubTab(JScrollPane, ActionListener):
                 'Close'
             )
             if result == 0:
-                browser_open(self.link)
+                browser_open(self.url)
 
 
 class OptionsTab(SubTab, ChangeListener):
@@ -346,7 +349,7 @@ class OptionsTab(SubTab, ChangeListener):
     BTN_QUICKLOAD      = 'Quickload'
     BTN_EXPORTCONFIG   = 'Export Config'
     BTN_IMPORTCONFIG   = 'Import Config'
-    BTN_DOCS           = 'View full guide'
+    BTN_DOCS           = 'Visit Wiki'
     BTN_EMV            = 'Show EMV'
     CHKBOX_PANE        = 'Tool scope settings'
     QUICKSTART_PANE    = 'Quickstart guide'
@@ -1077,11 +1080,7 @@ class ConfigTab(SubTab):
         self.param_handl_txtfield_match_indices.setText('0')
         self.param_handl_txtfield_match_indices.setEnabled(False)
 
-        self.param_handl_button_indices_help = self.HelpButton(
-            CPH_Help.indices.title,
-            CPH_Help.indices.message,
-            SubTab.DOCS_URL + '#quickstart/indices'
-        )
+        self.param_handl_button_indices_help = self.HelpButton(CPH_Help.indices)
         self.param_handl_button_indices_help.addActionListener(self)
 
         self.param_handl_subset_pane = JPanel(FlowLayout(FlowLayout.LEADING))
@@ -1101,6 +1100,7 @@ class ConfigTab(SubTab):
 
         self.request       , self.response        = self.initialize_req_resp()
         self.cached_request, self.cached_response = self.initialize_req_resp()
+
         if message: # init argument, defaults to None, set when using 'Send to CPH'
             self.request = message.getRequest()
             resp = message.getResponse()
@@ -1110,8 +1110,6 @@ class ConfigTab(SubTab):
             self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HOST_INDEX).setText(httpsvc.getHost())
             self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.PORT_INDEX).setValue(httpsvc.getPort())
             self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HTTPS_INDEX).setSelected(httpsvc.getProtocol() == 'https')
-            # Using doClick() since it's initially unchecked, which means it'll get checked *and* the ActionListener will trigger.
-            self.param_handl_dynamic_chkbox.doClick()
 
         self.param_handl_request_editor  = MainTab._cph.callbacks.createMessageEditor(None, True)
         self.param_handl_response_editor = MainTab._cph.callbacks.createMessageEditor(None, False)
@@ -1128,29 +1126,13 @@ class ConfigTab(SubTab):
         self.param_handl_combo_extract = JComboBox(self.PARAM_HANDL_COMBO_EXTRACT_CHOICES)
         self.param_handl_combo_extract.addActionListener(self)
 
-        self.param_handl_button_named_groups_help = self.HelpButton(
-            CPH_Help.named_groups.title,
-            CPH_Help.named_groups.message,
-            SubTab.DOCS_URL + '#quickstart/named_groups'
-        )
+        self.param_handl_button_named_groups_help = self.HelpButton(CPH_Help.named_groups)
         self.param_handl_button_named_groups_help.addActionListener(self)
 
         # These ones don't need ActionListeners; see actionPerformed().
-        self.param_handl_button_extract_single_help = self.HelpButton(
-            CPH_Help.extract_single.title,
-            CPH_Help.extract_single.message,
-            SubTab.DOCS_URL + '#quickstart/extract_single'
-        )
-        self.param_handl_button_extract_macro_help = self.HelpButton(
-            CPH_Help.extract_macro.title,
-            CPH_Help.extract_macro.message,
-            SubTab.DOCS_URL + '#quickstart/extract_macro'
-        )
-        self.param_handl_button_extract_cached_help = self.HelpButton(
-            CPH_Help.extract_cached.title,
-            CPH_Help.extract_cached.message,
-            SubTab.DOCS_URL + '#quickstart/extract_cached'
-        )
+        self.param_handl_button_extract_single_help = self.HelpButton(CPH_Help.extract_single)
+        self.param_handl_button_extract_macro_help  = self.HelpButton(CPH_Help.extract_macro )
+        self.param_handl_button_extract_cached_help = self.HelpButton(CPH_Help.extract_cached)
 
         self.param_handl_combo_cached = JComboBox()
         self.param_handl_combo_cached.addActionListener(self)
@@ -1160,6 +1142,8 @@ class ConfigTab(SubTab):
 
         if self.request:
             self.param_handl_combo_extract.setSelectedItem(self.PARAM_HANDL_COMBO_EXTRACT_SINGLE)
+            # Using doClick() since it's initially unchecked, which means it'll get checked *and* the ActionListener will trigger.
+            self.param_handl_dynamic_chkbox.doClick()
 
         for previous_tab in MainTab.get_config_tabs():
             if previous_tab == self:
@@ -1461,7 +1445,7 @@ class ConfigTab(SubTab):
         # Making a FlowLayout panel here so the combo box doesn't stretch.
         combo_pane = JPanel(FlowLayout(FlowLayout.LEADING))
         combo_pane.add(self.param_handl_combo_extract)
-        placeholder_btn = self.HelpButton('', '')
+        placeholder_btn = self.HelpButton()
         placeholder_btn.addActionListener(self)
         combo_pane.add(placeholder_btn)
         combo_pane.add(SubTab.create_blank_space())

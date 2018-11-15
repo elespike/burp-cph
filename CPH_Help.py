@@ -18,28 +18,25 @@ class CPH_Help:
     reloading not only the extension, but Burp Suite entirely. All values of each existing<br>
     configuration tab will be saved, along with the order of all tabs.<br>
     <br>
-    Use the Export/Import Config buttons to save/load your current configuration to/from a file.<br></strong>
+    Use the Export/Import Config buttons to save/load your current configuration to/from a JSON file.<br></strong>
     <br>
     <h2>Adding configuration tabs</h2>
     &nbsp;&nbsp;&nbsp;&nbsp;- Click '+' to add an empty tab; or<br>
     &nbsp;&nbsp;&nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.<br>
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This will create as many tabs as the number of selected requests, and populate each tab<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with each selected request to be issued for parameter extraction.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with each selected request to be issued for parameter extraction from its response.<br>
     <br>
     <h2>Enabling/Disabling configuration tabs</h2>
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Simply click the checkbox next to the tab's name.<br>
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;New tabs are enabled by default but require a valid configuration in order to have any effect.<br>
     <br>
-    <h2>Tips and notes</h2>
-    &nbsp;&nbsp;&nbsp;&nbsp;- Leftmost tabs will be processed first; therefore, tab order may be important,<br>
+    <h2>Tab order</h2>
+    &nbsp;&nbsp;&nbsp;&nbsp;Leftmost tabs will be processed first; therefore, tab order may be important,<br>
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;especially when extracting values from cached responses.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please view the full guide for explanations on utilizing cached responses.<br>
-    <br>
-    &nbsp;&nbsp;&nbsp;&nbsp;- When utilizing RegEx, using a group will constrain the match to the group's contents.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This strategy, therefore, increases match accuracy.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please visit the Wiki to learn more about utilizing cached responses.<br>
     </html>"""
 
-    HelpPopup = namedtuple('HelpPopup', 'title, message')
+    HelpPopup = namedtuple('HelpPopup', 'title, message, url')
 
     indices = HelpPopup(
         'Targeting a subset of matches',
@@ -51,14 +48,16 @@ class CPH_Help:
         0:7,9&nbsp;&nbsp; - targets the first 7 matches and the 10th match<br>
         -1,-2&nbsp;&nbsp; - targets the last and penultimate matches<br>
         0:-1&nbsp;&nbsp;&nbsp; - targets all but the last match
-        </html>"""
+        </html>""",
+        'https://example.com/?TODO'
     )
 
     named_groups = HelpPopup(
         'Inserting a dynamic value using named groups',
         """<html>
         TODO
-        </html>"""
+        </html>""",
+        'https://example.com/?TODO'
     )
 
     extract_single = HelpPopup(
@@ -72,7 +71,8 @@ class CPH_Help:
         <br>
         The <b>Issue</b> button may be used to test the request,<br>
         helping ensure a proper response.
-        </html>"""
+        </html>""",
+        'https://example.com/?TODO'
     )
 
     extract_macro = HelpPopup(
@@ -86,7 +86,8 @@ class CPH_Help:
         <br>
         Finally, craft a RegEx to extract the desired value<br>
         from the final Macro response.
-        </html>"""
+        </html>""",
+        'https://example.com/?TODO'
     )
 
     extract_cached = HelpPopup(
@@ -103,7 +104,8 @@ class CPH_Help:
         from the selected tab's cached response.<br>
         Note that disabled tabs will still cache HTTP messages<br>
         and therefore can be used as a mechanism for value extraction.
-        </html>"""
+        </html>""",
+        'https://example.com/?TODO'
     )
 
     def __init__(self):
