@@ -1,7 +1,3 @@
-########################################################################################################################
-#  Begin CustomParameterHandler.py Imports
-########################################################################################################################
-
 from datetime import datetime as dt
 from sys      import stdout
 from urllib   import quote
@@ -30,13 +26,6 @@ from burp        import IHttpListener
 from burp        import ISessionHandlingAction
 from javax.swing import JMenuItem
 
-########################################################################################################################
-#  End CustomParameterHandler.py Imports
-########################################################################################################################
-
-########################################################################################################################
-#  Begin CustomParameterHandler.py
-########################################################################################################################
 
 class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
@@ -45,6 +34,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
         self.logger = getLogger(__name__)
         self.initialize_logger()
+
+        self.maintab = MainTab(self)
 
     def initialize_logger(self):
         fmt = '\n%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s'
@@ -60,7 +51,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
         self.helpers   = callbacks.getHelpers()
-        self.maintab   = MainTab(self)
         callbacks.setExtensionName('Custom Parameter Handler')
         callbacks.registerContextMenuFactory(self)
         callbacks.registerExtensionStateListener(self)
@@ -94,6 +84,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.maintab.add_config_tab(self.messages_to_send)
 
     def extensionUnloaded(self):
+        if self.maintab.options_tab.httpd is not None:
+            self.maintab.options_tab.httpd.shutdown()
+            self.maintab.options_tab.httpd.server_close()
         try:
             while self.maintab.options_tab.emv_tab_pane.getTabCount():
                 self.maintab.options_tab.emv_tab_pane.remove(
@@ -252,7 +245,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     port  = forwarder_config.port
                     https = forwarder_config.https
 
-                    # TODO test whether updating content-length is needed
+                    # Need to update content-length.
                     request_bytes = self.update_content_length(request_bytes, messageIsRequest)
                     req_as_string = self.helpers.bytesToString(request_bytes)
 
@@ -502,28 +495,31 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         message_parts = re_split(findall_exp, msg_as_string)
         self.logger.debug('message_parts: {}'.format(message_parts))
 
+        # The above strategy to use re.split() in order to enable the usage of match_indices
+        # ends up breaking non-capturing groups. At this point, however, we can safely remove
+        # all non-capturing groups and everything will be peachy.
+        ncg_exp = re_compile('\(\?[^P].+?\)')
+        if re_search(ncg_exp, match_exp.pattern) is not None:
+            match_exp = re_compile(ncg_exp.sub('', match_exp.pattern))
+            self.logger.debug('match_exp adjusted to: {}'.format(match_exp.pattern))
+
         modified_message  = ''
         remaining_indices = list(match_indices)
         for part_index, message_part in enumerate(message_parts):
-            combined_part = message_part
-            if part_index < match_count:
-                combined_part += all_matches[part_index]
             if remaining_indices and part_index == remaining_indices[0]:
-                combined_part += dyn_values
                 try:
-                    final_value = match_exp.sub(replace_exp, combined_part)
+                    final_value = match_exp.sub(replace_exp, all_matches[part_index])
                 except (re_error, IndexError) as e:
                     self.logger.error(exc_invalid_regex.format(match_exp.pattern + ' or expression ' + replace_exp, e))
                     return msg_as_string
-                self.logger.debug('Found {}, replaced using {} in {}'.format(match_exp.pattern, replace_exp, combined_part))
+                self.logger.debug('Found {}, replaced using {} in {}'.format(match_exp.pattern, replace_exp, repr(all_matches[part_index])))
+                final_value = message_part + final_value + dyn_values
                 modified_message += final_value
                 remaining_indices.pop(0)
+            elif part_index < match_count:
+                modified_message += message_part + all_matches[part_index]
             else:
-                modified_message += combined_part
+                modified_message += message_part
 
         return modified_message
-
-########################################################################################################################
-#  End CustomParameterHandler.py
-########################################################################################################################
 

@@ -1,16 +1,5 @@
-########################################################################################################################
-#  Begin CPH_Help.py Imports
-########################################################################################################################
-
 from collections import namedtuple
 
-########################################################################################################################
-#  End CPH_Help.py Imports
-########################################################################################################################
-
-########################################################################################################################
-#  Begin CPH_Help.py
-########################################################################################################################
 
 class CPH_Help:
     quickstart = """<html>
@@ -21,19 +10,19 @@ class CPH_Help:
     Use the Export/Import Config buttons to save/load your current configuration to/from a JSON file.<br></strong>
     <br>
     <h2>Adding configuration tabs</h2>
-    &nbsp;&nbsp;&nbsp;&nbsp;- Click '+' to add an empty tab; or<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This will create as many tabs as the number of selected requests, and populate each tab<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with each selected request to be issued for parameter extraction from its response.<br>
+    &nbsp;&nbsp;- Click '+' to add an empty tab; or<br>
+    &nbsp;&nbsp;- Select one or many requests from anywhere in Burp, right-click, and choose 'Send to CPH'.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;This will create as many tabs as the number of selected requests, and populate each tab<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;with each selected request to be issued for parameter extraction from its response.<br>
     <br>
     <h2>Enabling/Disabling configuration tabs</h2>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Simply click the checkbox next to the tab's name.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;New tabs are enabled by default but require a valid configuration in order to have any effect.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;Simply click the checkbox next to the tab's name.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;New tabs are enabled by default but require a valid configuration in order to have any effect.<br>
     <br>
     <h2>Tab order</h2>
     &nbsp;&nbsp;&nbsp;&nbsp;Leftmost tabs will be processed first; therefore, tab order may be important,<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;especially when extracting values from cached responses.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please visit the Wiki to learn more about utilizing cached responses.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;especially when extracting values from cached responses.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;Please visit the Wiki to learn more about utilizing cached responses.<br>
     </html>"""
 
     HelpPopup = namedtuple('HelpPopup', 'title, message, url')
@@ -110,8 +99,4 @@ class CPH_Help:
 
     def __init__(self):
         pass
-
-########################################################################################################################
-#  End CPH_Help.py
-########################################################################################################################
 

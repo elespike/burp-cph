@@ -1,7 +1,3 @@
-########################################################################################################################
-#  Begin CPH_Config.py Imports
-########################################################################################################################
-
 from logging import (
     DEBUG       ,
     ERROR       ,
@@ -9,14 +5,18 @@ from logging import (
     WARNING     ,
     getLevelName,
 )
-from collections import OrderedDict as odict, namedtuple
-from difflib     import unified_diff
-from hashlib     import sha256
-from itertools   import product
-from json        import dump, dumps, load, loads
-from re          import escape as re_escape
-from thread      import start_new_thread
-from webbrowser  import open_new_tab as browser_open
+from SocketServer import ThreadingMixIn, TCPServer
+from collections  import OrderedDict as odict, namedtuple
+from difflib      import unified_diff
+from hashlib      import sha256
+from itertools    import product
+from json         import dump, dumps, load, loads
+from re           import escape as re_escape
+from socket       import error as socket_error
+from thread       import start_new_thread
+from threading    import Thread
+from tinyweb      import TinyHandler
+from webbrowser   import open_new_tab as browser_open
 
 from burp import ITab
 from CPH_Help import CPH_Help
@@ -62,13 +62,6 @@ from javax.swing.filechooser import FileNameExtensionFilter
 from javax.swing.table       import AbstractTableModel
 from javax.swing.undo        import UndoManager
 
-########################################################################################################################
-#  End CPH_Config.py Imports
-########################################################################################################################
-
-########################################################################################################################
-#  Begin CPH_Config.py
-########################################################################################################################
 
 class MainTab(ITab, ChangeListener):
     mainpane = JTabbedPane()
@@ -343,16 +336,22 @@ class SubTab(JScrollPane, ActionListener):
                 browser_open(self.url)
 
 
+class ThreadedHTTPServer(ThreadingMixIn, TCPServer):
+    pass
+
+
 class OptionsTab(SubTab, ChangeListener):
-    VERBOSITY          = 'Verbosity level:'
-    BTN_QUICKSAVE      = 'Quicksave'
-    BTN_QUICKLOAD      = 'Quickload'
-    BTN_EXPORTCONFIG   = 'Export Config'
-    BTN_IMPORTCONFIG   = 'Import Config'
-    BTN_DOCS           = 'Visit Wiki'
-    BTN_EMV            = 'Show EMV'
-    CHKBOX_PANE        = 'Tool scope settings'
-    QUICKSTART_PANE    = 'Quickstart guide'
+    VERBOSITY        = 'Verbosity level:'
+    BTN_QUICKSAVE    = 'Quicksave'
+    BTN_QUICKLOAD    = 'Quickload'
+    BTN_EXPORTCONFIG = 'Export Config'
+    BTN_IMPORTCONFIG = 'Import Config'
+    BTN_DOCS         = 'Visit Wiki'
+    BTN_EMV          = 'Show EMV'
+    DEMO_INACTIVE    = 'Run the built-in httpd for interactive demos'
+    DEMO_ACTIVE      = 'Running built-in httpd on {}:{}'
+    CHKBOX_PANE      = 'Tool scope settings'
+    QUICKSTART_PANE  = 'Quickstart guide'
 
     FILEFILTER = FileNameExtensionFilter('JSON', ['json'])
 
@@ -393,6 +392,10 @@ class OptionsTab(SubTab, ChangeListener):
             dbg : DEBUG  ,
         }
 
+        # Just initializing
+        self.httpd = None
+        self.httpd_thread = None
+
         self.verbosity_level_lbl = JLabel(getLevelName(INFO))
         self.verbosity_spinner = JSpinner(SpinnerNumberModel(info, err, dbg, 1))
         self.verbosity_spinner.addChangeListener(self)
@@ -401,6 +404,11 @@ class OptionsTab(SubTab, ChangeListener):
         verbosity_pane.add(JLabel(self.VERBOSITY))
         verbosity_pane.add(self.verbosity_spinner)
         verbosity_pane.add(self.verbosity_level_lbl)
+
+        self.chkbox_demo = JCheckBox(self.DEMO_INACTIVE, False)
+        self.chkbox_demo.addActionListener(self)
+        demo_pane = JPanel(FlowLayout(FlowLayout.LEADING))
+        demo_pane.add(self.chkbox_demo)
 
         self.emv = JFrame('Effective Modification Viewer')
         self.emv_tab_pane = JTabbedPane()
@@ -425,6 +433,10 @@ class OptionsTab(SubTab, ChangeListener):
         btn_pane.add(btn_docs, constraints)
         constraints.gridx = 1
         btn_pane.add(btn_emv, constraints)
+        constraints.gridy = 4
+        constraints.gridx = 0
+        constraints.gridwidth = 2
+        btn_pane.add(demo_pane, constraints)
 
         self.chkbox_proxy     = JCheckBox('Proxy'    , True )
         self.chkbox_target    = JCheckBox('Target'   , False)
@@ -666,6 +678,26 @@ class OptionsTab(SubTab, ChangeListener):
                         MainTab.logger.exception('Error exporting config to "{}".'.format(fpath))
                 if result == JFileChooser.CANCEL_OPTION:
                     MainTab.logger.info('User canceled configuration export to file.')
+
+        if c == self.DEMO_INACTIVE:
+            # Start threaded HTTP server for interactive demos.
+            try:
+                self.httpd = ThreadedHTTPServer(('localhost', 9001), TinyHandler)
+            except socket_error:
+                # Port zero means any unused port.
+                self.httpd = ThreadedHTTPServer(('localhost', 0), TinyHandler)
+            self.httpd_thread = Thread(target=self.httpd.serve_forever)
+            # Daemonize so that it terminates cleanly without needing to join().
+            self.httpd_thread.daemon = True
+            self.httpd_thread.start()
+            self.chkbox_demo.setText(self.DEMO_ACTIVE.format(*self.httpd.server_address))
+
+        if self.httpd is not None and c == self.DEMO_ACTIVE.format(*self.httpd.server_address):
+            self.httpd.shutdown()
+            self.httpd.server_close()
+            self.httpd = None
+            self.chkbox_demo.setText(self.DEMO_INACTIVE)
+
 
     def load_config(self, config, replace_config_tabs=False):
         loaded_tab_names = config.keys()
@@ -1677,8 +1709,4 @@ class FlexibleCardLayout(CardLayout):
             if comp.isVisible():
                 return comp
         return None
-
-########################################################################################################################
-#  End CPH_Config.py
-########################################################################################################################
 
