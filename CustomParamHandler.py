@@ -1,7 +1,3 @@
-########################################################################################################################
-#  Begin CustomParameterHandler.py Imports
-########################################################################################################################
-
 from datetime import datetime as dt
 from sys      import stdout
 from urllib   import quote
@@ -13,13 +9,14 @@ from logging import (
     getLogger    ,
 )
 from re import (
-    compile          ,
-    error as re_error,
-    escape           ,
-    findall          ,
-    finditer         ,
-    search           ,
-    sub              ,
+    compile  as re_compile ,
+    error    as re_error   ,
+    findall  as re_findall ,
+    finditer as re_finditer,
+    match    as re_match   ,
+    search   as re_search  ,
+    split    as re_split   ,
+    sub      as re_sub     ,
 )
 
 from CPH_Config  import MainTab
@@ -30,26 +27,20 @@ from burp        import IHttpListener
 from burp        import ISessionHandlingAction
 from javax.swing import JMenuItem
 
-########################################################################################################################
-#  End CustomParameterHandler.py Imports
-########################################################################################################################
-
-########################################################################################################################
-#  Begin CustomParameterHandler.py
-########################################################################################################################
 
 class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpListener, ISessionHandlingAction):
     def __init__(self):
-        self._hostheader = 'Host: '
         self.messages_to_send = []
         self.final_macro_resp = ''
 
         self.logger = getLogger(__name__)
         self.initialize_logger()
 
+        self.maintab = MainTab(self)
+
     def initialize_logger(self):
-        fmt='%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s\n'
-        datefmt='%H:%M:%S'
+        fmt = '\n%(asctime)s:%(msecs)03d [%(levelname)s] %(message)s'
+        datefmt = '%H:%M:%S'
         formatter = Formatter(fmt=fmt, datefmt=datefmt)
 
         handler = StreamHandler(stream=stdout)
@@ -60,8 +51,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
-        self.helpers = callbacks.getHelpers()
-        self.maintab = MainTab(self)
+        self.helpers   = callbacks.getHelpers()
         callbacks.setExtensionName('Custom Parameter Handler')
         callbacks.registerContextMenuFactory(self)
         callbacks.registerExtensionStateListener(self)
@@ -95,6 +85,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.maintab.add_config_tab(self.messages_to_send)
 
     def extensionUnloaded(self):
+        if self.maintab.options_tab.httpd is not None:
+            self.maintab.options_tab.httpd.shutdown()
+            self.maintab.options_tab.httpd.server_close()
         try:
             while self.maintab.options_tab.emv_tab_pane.getTabCount():
                 self.maintab.options_tab.emv_tab_pane.remove(
@@ -102,7 +95,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 )
             self.maintab.options_tab.emv.dispose()
         except AttributeError:
-            self.logger.warning('Effective Modification Viewer not found! You may be using an outdated version of CPH!')
+            self.logger.warning(
+                'Effective Modification Viewer not found! You may be using an outdated version of CPH!'
+            )
 
         while self.maintab.mainpane.getTabCount():
             # For some reason, the last tab isn't removed until the next loop,
@@ -114,78 +109,54 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             except:
                 continue
 
-    @staticmethod
-    def split_host_port(host_and_port):
-        split_index = host_and_port.index(':')
-        host = host_and_port[:split_index]
-        try:
-            port = int(host_and_port[split_index + 1:])
-            return host, port
-        except ValueError:
-            self.logger.exception('Invalid port value detected; reverting to port 80. Details below:')
-            return host, 80
-
     def issue_request(self, tab):
         tab.request = tab.param_handl_request_editor.getMessage()
-        req_as_string = self.helpers.bytesToString(tab.request)
-        req_info = self.helpers.analyzeRequest(tab.request)
-        headers = req_info.getHeaders()
 
-        # Update host header
-        host = ''
-        port = 80
-        https = tab.param_handl_https_chkbox.isSelected()
-        if https:
-            port = 443
-        for header in headers:
-            if header.startswith(self._hostheader):
-                host = header.replace(self._hostheader, '')
-                if ':' in host:
-                    host, port = self.split_host_port(host)
-        self.logger.debug('Host is: {}'.format(host))
+        issuer_config = tab.get_socket_pane_config(tab.param_handl_issuer_socket_pane)
+        host  = issuer_config.host
+        port  = issuer_config.port
+        https = issuer_config.https
 
-        # Update cookies
-        if tab.param_handl_update_cookies_chkbox.isSelected():
-            cookies = self.callbacks.getCookieJarContents()
-            for cookie in cookies:
-                cdom = cookie.getDomain()
-                if host not in cdom:
-                    continue
-                self.logger.debug('Cookie domain is: {}'.format(cdom))
-                cname = cookie.getName()
-                for header in headers:
-                    if header.startswith('Cookie: '):
-                        self.logger.debug('Cookie header from derivation request:\n{}'.format(header))
-                        if not header.endswith(';'):
-                            header += ';'
-                        match = search(r'[ ;]' + cname + r'=.+?[;\r]', header)
-                        if match:
-                            self.logger.debug('Cookie found in derivation request headers: {}'.format(cname))
-                            cvalue = cookie.getValue()
-                            self.logger.debug('Cookie value from Burp\'s jar: "{}"'.format(cvalue))
-                            if cvalue:
-                                exp = compile('({}=).+?([;\r])'.format(cname))
-                                req_as_string = exp.sub('\g<1>{}\g<2>'.format(cvalue), req_as_string)
-                                tab.request = self.helpers.stringToBytes(req_as_string)
-                                tab.param_handl_request_editor.setMessage(tab.request, True)
-                                self.logger.info('Cookie updated on tab "{}": {}={}'.format(
-                                    tab.namepane_txtfield.getText(), cname, cvalue))
+        tab.request = self.update_content_length(tab.request, True)
+        tab.param_handl_request_editor.setMessage(tab.request, True)
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
-            resp = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
-            self.logger.debug('Issued configured request from tab "{}" to host "{}"'.format(
-                tab.namepane_txtfield.getText(), httpsvc.getHost()))
-            if resp:
-                tab.param_handl_response_editor.setMessage(resp, False)
-                tab.response = resp
+            response_bytes = self.callbacks.makeHttpRequest(httpsvc, tab.request).getResponse()
+            self.logger.debug('Issued configured request from tab "{}" to host "{}:{}"'.format(
+                tab.namepane_txtfield.getText(),
+                httpsvc.getHost(),
+                httpsvc.getPort()
+            ))
+            if response_bytes:
+                tab.param_handl_response_editor.setMessage(response_bytes, False)
+                tab.response = response_bytes
                 self.logger.debug('Got response!')
         # Generic except because misc. Java exceptions might occur.
         except:
-            self.logger.exception('Error issuing configured request from tab "{}" to host "{}"'.format(
-                tab.namepane_txtfield.getText(), host))
+            self.logger.exception('Error issuing configured request from tab "{}" to host "{}:{}"'.format(
+                tab.namepane_txtfield.getText(),
+                host,
+                port
+            ))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
             tab.param_handl_response_editor.setMessage(tab.response, False)
+
+    def update_content_length(self, message_bytes, is_request):
+        if is_request:
+            message_info = self.helpers.analyzeRequest(message_bytes)
+        else:
+            message_info = self.helpers.analyzeResponse(message_bytes)
+
+        content_length = len(message_bytes) - message_info.getBodyOffset()
+        msg_as_string = self.helpers.bytesToString(message_bytes)
+        msg_as_string = re_sub(
+            'Content-Length: \d+\r\n',
+            'Content-Length: {}\r\n'.format(content_length),
+            msg_as_string,
+            1
+        )
+        return self.helpers.stringToBytes(msg_as_string)
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
         dbg_skip_tool = 'Skipping message received from {} on account of global tool scope options.'
@@ -226,103 +197,118 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             return
 
         requestinfo = self.helpers.analyzeRequest(messageInfo)
-        requesturl = requestinfo.getUrl()
+        requesturl  = requestinfo.getUrl()
+
         if not self.callbacks.isInScope(requesturl):
             return
-        req = messageInfo.getRequest()
-        req_as_string = self.helpers.bytesToString(req)
-        content_length_pattern = r'Content-Length: \d+\r\n'
-        content_length_repl = 'Content-Length: {}\r\n'
-        set_cache = False
+
+        # Leave these out of the 'if' statement; the 'else' needs req_as_string.
+        request_bytes = messageInfo.getRequest()
+        req_as_string = self.helpers.bytesToString(request_bytes)
         if messageIsRequest:
+            original_req  = req_as_string
             for tab in self.maintab.get_config_tabs():
-                if req == tab.request:
+                if request_bytes == tab.request:
                     continue
+
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(req_as_string, messageIsRequest, tab):
-                    self.logger.info('Sending request to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    modified_request = self.modify_message(tab, req_as_string)
-                    if req_as_string != modified_request:
+
+                    self.logger.info('Sending request to tab "{}" for modification'.format(
+                        tab.namepane_txtfield.getText()
+                    ))
+
+                    req_as_string = self.modify_message(tab, req_as_string)
+                    if req_as_string != original_req:
                         if tab.param_handl_auto_encode_chkbox.isSelected():
                             # URL-encode the first line of the request, since it was modified
-                            first_req_line_old = modified_request.split('\r\n')[0]
-                            self.logger.debug('first_req_line_old is:\n{}'.format(first_req_line_old))
+                            first_req_line_old = req_as_string.split('\r\n')[0]
+                            self.logger.debug('first_req_line_old:\n{}'.format(first_req_line_old))
                             first_req_line_old = first_req_line_old.split(' ')
                             first_req_line_new = '{} {} {}'.format(
                                 first_req_line_old[0],
                                 ''.join([quote(char, safe='/%+=?&') for char in '%20'.join(first_req_line_old[1:-1])]),
-                                first_req_line_old[-1])
-                            self.logger.debug('first_req_line_new is:\n{}'.format(first_req_line_new))
-                            modified_request = modified_request.replace(' '.join(first_req_line_old), first_req_line_new)
-                        tab.emv_tab.add_table_row(dt.now().time(), True, req_as_string, modified_request)
-                        req_as_string = modified_request
-                        self.logger.debug('Actual first line of request is:\n{}'.format(req_as_string.split('\r\n')[0]))
-                        req = self.helpers.stringToBytes(req_as_string)
+                                first_req_line_old[-1]
+                            )
+                            self.logger.debug('first_req_line_new:\n{}'.format(first_req_line_new))
+                            req_as_string = req_as_string.replace(
+                                ' '.join(first_req_line_old),
+                                first_req_line_new
+                            )
+                            self.logger.debug('Resulting first line of request:\n{}'.format(
+                                req_as_string.split('\r\n')[0]
+                            ))
 
-            requestinfo = self.helpers.analyzeRequest(req)
-            content_length = len(req) - requestinfo.getBodyOffset()
-            req_as_string = sub(content_length_pattern,
-                                   content_length_repl.format(content_length),
-                                   req_as_string,
-                                   1)
-            req = self.helpers.stringToBytes(req_as_string)
-            messageInfo.setRequest(req)
+                        request_bytes = self.helpers.stringToBytes(req_as_string)
 
-            requestinfo = self.helpers.analyzeRequest(req)
-            new_headers = requestinfo.getHeaders()
-            httpsvc = messageInfo.getHttpService()
-            port = httpsvc.getPort()
-            for header in new_headers:
-                if self._hostheader in header:
-                    host = header.replace(self._hostheader, '')
-                    if ':' in host:
-                        host, port = self.split_host_port(host)
-                    messageInfo.setHttpService(self.helpers.buildHttpService(
-                        host, port, httpsvc.getProtocol()))
-                    break
-            self.logger.debug('Forwarding request to host "{}"'.format(messageInfo.getHttpService().getHost()))
+                    forwarder_config = tab.get_socket_pane_config(tab.param_handl_forwarder_socket_pane)
+                    host  = forwarder_config.host
+                    port  = forwarder_config.port
+                    https = forwarder_config.https
+
+                    # Need to update content-length.
+                    request_bytes = self.update_content_length(request_bytes, messageIsRequest)
+                    req_as_string = self.helpers.bytesToString(request_bytes)
+
+                    if req_as_string != original_req:
+                        tab.emv_tab.add_table_row(dt.now().time(), True, original_req, req_as_string)
+
+                    if tab.param_handl_enable_forwarder_chkbox.isSelected():
+                        try:
+                            messageInfo.setHttpService(self.helpers.buildHttpService(host, int(port), https))
+                            httpsvc = messageInfo.getHttpService()
+                            self.logger.info('Tab "{}" is re-routing its request to "{}:{}"'.format(
+                                tab.namepane_txtfield.getText(),
+                                httpsvc.getHost(),
+                                httpsvc.getPort()
+                            ))
+                        # Generic except because misc. Java exceptions might occur.
+                        except:
+                            self.logger.exception('Error re-routing request:')
+
+            messageInfo.setRequest(request_bytes)
 
         if not messageIsRequest:
-            resp = messageInfo.getResponse()
-            resp_as_string = self.helpers.bytesToString(resp)
+            response_bytes = messageInfo.getResponse()
+            resp_as_string = self.helpers.bytesToString(response_bytes)
+            original_resp  = resp_as_string
+
             for tab in self.maintab.get_config_tabs():
                 if tab.tabtitle_pane.enable_chkbox.isSelected() \
                 and self.is_in_cph_scope(resp_as_string, messageIsRequest, tab):
-                    self.logger.info('Sending response to tab "{}" for modification'.format(tab.namepane_txtfield.getText()))
-                    modified_response = self.modify_message(tab, resp_as_string)
-                    if resp_as_string != modified_response:
-                        tab.emv_tab.add_table_row(dt.now().time(), False, resp_as_string, modified_response)
-                        resp_as_string = modified_response
-                    resp = self.helpers.stringToBytes(resp_as_string)
 
-            responseinfo = self.helpers.analyzeResponse(resp)
-            content_length = len(resp) - responseinfo.getBodyOffset()
-            resp_as_string = sub(content_length_pattern,
-                                    content_length_repl.format(content_length),
-                                    resp_as_string,
-                                    1)
-            resp = self.helpers.stringToBytes(resp_as_string)
-            messageInfo.setResponse(resp)
+                    self.logger.info('Sending response to tab "{}" for modification'.format(
+                        tab.namepane_txtfield.getText()
+                    ))
+
+                    resp_as_string = self.modify_message(tab, resp_as_string)
+                    response_bytes = self.helpers.stringToBytes(resp_as_string)
+                    response_bytes = self.update_content_length(response_bytes, messageIsRequest)
+                    resp_as_string = self.helpers.bytesToString(response_bytes)
+
+                    if resp_as_string != original_resp:
+                        tab.emv_tab.add_table_row(dt.now().time(), False, original_resp, resp_as_string)
+
+            messageInfo.setResponse(response_bytes)
 
             for working_tab in self.maintab.get_config_tabs():
                 selected_item = working_tab.param_handl_combo_cached.getSelectedItem()
-                working_tab.param_handl_combo_cached.removeAllItems()
-                if self.is_in_cph_scope(req_as_string, True, working_tab) or self.is_in_cph_scope(resp_as_string, False, working_tab):
-                    working_tab.cached_request  = req
-                    working_tab.cached_response = resp
-                    self.logger.debug('Messages cached for tab {}!'.format(working_tab.namepane_txtfield.getText()))
+                if self.is_in_cph_scope(req_as_string , True , working_tab)\
+                or self.is_in_cph_scope(resp_as_string, False, working_tab):
+                    working_tab.cached_request  = request_bytes
+                    working_tab.cached_response = response_bytes
+                    self.logger.debug('Messages cached for tab {}!'.format(
+                        working_tab.namepane_txtfield.getText()
+                    ))
+                # If this tab is set to extract a value from one of the previous tabs,
+                # update its cached message panes with that tab's cached messages.
                 for previous_tab in self.maintab.get_config_tabs():
-                    if working_tab == previous_tab:
+                    if previous_tab == working_tab:
                         break
-                    if previous_tab.cached_request is None or previous_tab.cached_response is None:
-                        continue
-                    empty_req, empty_resp = previous_tab.initialize_req_resp()
-                    if previous_tab.cached_request == empty_req or previous_tab.cached_response == empty_resp:
-                        continue
                     item = previous_tab.namepane_txtfield.getText()
-                    working_tab.param_handl_combo_cached.addItem(item)
                     if item == selected_item:
-                        working_tab.param_handl_combo_cached.setSelectedItem(item)
+                        working_tab.param_handl_cached_req_viewer .setMessage(previous_tab.cached_request , True)
+                        working_tab.param_handl_cached_resp_viewer.setMessage(previous_tab.cached_response, False)
 
     def is_in_cph_scope(self, msg_as_string, is_request, tab):
         rms_scope_all  = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_ALL
@@ -332,12 +318,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         rms_type_responses = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_RESP
         rms_type_both      = tab.msg_mod_combo_type.getSelectedItem() == tab.MSG_MOD_COMBO_TYPE_BOTH
 
-        rms_field_modifymatch_txt, rms_checkbox_modifymatch_regex = tab.get_exp_pane_values(tab.msg_mod_exp_pane_scope)
-
-        self.logger.debug('is_request: {}'.format(is_request))
-        self.logger.debug('rms_type_requests: {}'.format(rms_type_requests))
-        self.logger.debug('rms_type_responses: {}'.format(rms_type_responses))
-        self.logger.debug('rms_type_both: {}'.format(rms_type_both))
+        rms_scope_exp = tab.get_exp_pane_expression(tab.msg_mod_exp_pane_scope)
 
         if is_request and (rms_type_requests or rms_type_both):
             pass
@@ -349,128 +330,146 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
         if rms_scope_all:
             return True
-        elif rms_scope_some and rms_field_modifymatch_txt:
-            if rms_checkbox_modifymatch_regex:
-                regexp = compile(rms_field_modifymatch_txt)
-                if regexp.search(msg_as_string):
-                    return True
-            else:
-                if rms_field_modifymatch_txt in msg_as_string:
-                    return True
+        elif rms_scope_some and rms_scope_exp:
+            regexp = re_compile(rms_scope_exp)
+            if regexp.search(msg_as_string):
+                return True
         else:
             self.logger.warning('Scope restriction is active but no expression was specified. Skipping tab "{}".'.format(
-                tab.namepane_txtfield.getText()))
+                tab.namepane_txtfield.getText()
+            ))
         return False
 
     def modify_message(self, tab, msg_as_string):
-        ph_field_matchnum_txt    = tab.param_handl_txtfield_match_indices .getText()
-        ph_field_staticvalue_txt = tab.param_handl_txtfield_extract_static.getText()
+        ph_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
 
-        ph_field_matchtarget_txt   , ph_checkbox_matchtarget_regex    = tab.get_exp_pane_values(tab.param_handl_exp_pane_target        )
-        ph_field_extract_cached_txt, ph_checkbox_extract_cached_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_cached)
-        ph_field_extract_single_txt, ph_checkbox_extract_single_regex = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_single)
-        ph_field_extract_macro_txt , ph_checkbox_extract_macro_regex  = tab.get_exp_pane_values(tab.param_handl_exp_pane_extract_macro )
+        ph_target_exp         = tab.get_exp_pane_expression(tab.param_handl_exp_pane_target        )
+        ph_extract_static_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_static)
+        ph_extract_single_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_single)
+        ph_extract_macro_exp  = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_macro )
+        ph_extract_cached_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_cached)
 
-        original_msg = msg_as_string
+        if not ph_target_exp:
+            self.logger.warning(
+                'No match expression specified! Skipping tab "{}".'.format(
+                    tab.namepane_txtfield.getText()
+                )
+            )
+            return msg_as_string
 
-        if not ph_field_matchtarget_txt:
-            self.logger.warning('No match expression specified! Skipping tab "{}".'.format(
-                tab.namepane_txtfield.getText()))
-            return original_msg
+        exc_invalid_regex = 'Skipping tab "{}" due to error in expression {{}}: {{}}'.format(
+            tab.namepane_txtfield.getText()
+        )
 
-        match_values = list()
-        for i in range(original_msg.count(ph_field_matchtarget_txt)):
-            match_values.append(ph_field_matchtarget_txt)
+        try:
+            match_exp = re_compile(ph_target_exp)
+        except re_error as e:
+            self.logger.error(exc_invalid_regex.format(ph_target_exp, e))
+            return msg_as_string
 
-        exc_search_for_exp = 'Error searching for expression {}. Details below:'
-        if ph_checkbox_matchtarget_regex:
-            try:
-                match_values = findall(ph_field_matchtarget_txt, original_msg)
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(
-                    ph_field_matchtarget_txt))
-            # In case multiple groups were specified, use only the first group
-            for i, match_value in enumerate(list(match_values)):
-                if type(match_value) == tuple:
-                    match_values[i] = match_value[0]
-            self.logger.debug('Extracted match values using this expression: {}'.format(
-                ph_field_matchtarget_txt))
-        self.logger.debug('Final match values: {}'.format(match_values))
+        # The following code does not remove support for groups,
+        # as the original expression will be used for actual replacements.
+        # We simply need an expression without capturing groups to feed into re.findall(),
+        # which enables the logic for granular control over which match indices to target.
 
-        replace_value = ph_field_staticvalue_txt.replace('\n', '\r\n')
-        self.logger.debug('Initial replace value: {}'.format(replace_value))
+        # Removing named groups to normalize capturing groups.
+        findall_exp = re_sub('\?P<.+?>', '', ph_target_exp)
+        # Removing capturing groups to search for full matches only.
+        findall_exp = re_sub(r'(?<!\\)\(([^?]*?)(?<!\\)\)', '\g<1>', findall_exp)
+        findall_exp = re_compile(findall_exp)
+        self.logger.debug('findall_exp: {}'.format(findall_exp.pattern))
 
-        match = None
-        dbg_extracted_repl = 'Extracted replace value using this expression: {}'
-        dbg_extract_repl_fail = 'Failed to extract replace value using this expression: {}'
-        dbg_new_repl_val = 'Replace value is now: {}'
-        if tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
-            try:
-                match = search(ph_field_extract_cached_txt,
-                                  self.helpers.bytesToString(tab.param_handl_cached_resp_viewer.getMessage()))
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(
-                    ph_field_extract_cached_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_cached_txt))
-                self.logger.debug(dbg_new_repl_val.format(replace_value))
-            else:
-                self.logger.debug(dbg_extract_repl_fail.format(
-                    ph_field_extract_cached_txt))
-        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
-            try:
-                self.issue_request(tab)
-                match = search(ph_field_extract_single_txt, self.helpers.bytesToString(tab.response))
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(
-                    ph_field_extract_single_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_single_txt))
-                self.logger.debug(dbg_new_repl_val.format(replace_value))
-            else:
-                self.logger.debug(dbg_extract_repl_fail.format(
-                    ph_field_extract_single_txt))
-        elif tab.param_handl_combo_extract.getSelectedItem() == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
-            try:
-                match = search(ph_field_extract_macro_txt, self.final_macro_resp)
-            except re_error:
-                self.logger.exception(exc_search_for_exp.format(
-                    ph_field_extract_macro_txt))
-            if match:
-                replace_value = match.group(0)
-                if match.groups():
-                    replace_value = match.group(1)
-                self.logger.debug(dbg_extracted_repl.format(ph_field_extract_macro_txt))
-                self.logger.debug(dbg_new_repl_val.format(replace_value))
-            else:
-                self.logger.debug(dbg_extract_repl_fail.format(
-                    ph_field_extract_macro_txt))
+        all_matches = re_findall(findall_exp, msg_as_string)
+        self.logger.debug('all_matches: {}'.format(all_matches))
 
-        self.logger.debug('Final replace value: {}'.format(replace_value))
-        self.logger.debug('Searching for "{}", inserting/replacing "{}"'.format(set(match_values), replace_value))
-
-        match_count = 0
-        for match_value in set(match_values):
-            match_count += original_msg.count(match_value)
+        match_count = len(all_matches)
         if not match_count:
-            self.logger.warning('No match found for any of "{}"! Skipping tab "{}".'.format(
-                match_values, tab.namepane_txtfield.getText()))
-            return original_msg
+            self.logger.warning(
+                'Skipping tab "{}" because this expression found no matches: {}'.format(
+                    tab.namepane_txtfield.getText(),
+                    ph_target_exp
+                )
+            )
+            return msg_as_string
 
-        subset = ph_field_matchnum_txt.replace(' ', '').split(',')
-        match_indices = []
-        for i, v in enumerate(subset):
+        matches     = list()
+        dyn_values  = ''
+        replace_exp = ph_extract_static_exp
+
+        if tab.param_handl_dynamic_chkbox.isSelected():
+            find_exp, target_txt = '', ''
+            selected_item = tab.param_handl_combo_extract.getSelectedItem()
+
+            if selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
+                find_exp, target_txt = ph_extract_cached_exp, tab.param_handl_cached_resp_viewer.getMessage()
+                target_txt = self.helpers.bytesToString(target_txt)
+
+            elif selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:
+                self.issue_request(tab)
+                find_exp, target_txt = ph_extract_single_exp, self.helpers.bytesToString(tab.response)
+
+            elif selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_MACRO:
+                find_exp, target_txt = ph_extract_macro_exp, self.final_macro_resp
+
+            if not find_exp:
+                self.logger.warning(
+                    'No dynamic value extraction expression specified! Skipping tab "{}".'.format(
+                        tab.namepane_txtfield.getText()
+                    )
+                )
+                return msg_as_string
+
             try:
-                if ':' in v:
-                    sliceindex = v.index(':')
-                    start = int(v[:sliceindex])
-                    end = int(v[sliceindex + 1:])
+                # Making a list to enable multiple iterations.
+                matches = list(re_finditer(find_exp, target_txt))
+            except re_error as e:
+                self.logger.error(exc_invalid_regex.format(ph_extract_macro_exp, e))
+                return msg_as_string
+
+            if not matches:
+                self.logger.warning('Skipping tab "{}" because this expression found no matches: {}'.format(
+                    tab.namepane_txtfield.getText(),
+                    find_exp
+                ))
+                return msg_as_string
+
+            groups = {}
+            groups_keys = groups.viewkeys()
+            for match in matches:
+                gd = match.groupdict()
+                # The given expression should have unique group matches.
+                for k in gd.keys():
+                    if k in groups_keys:
+                        self.logger.warning('Skipping tab "{}" because this expression found ambiguous matches: {}'.format(
+                            tab.namepane_txtfield.getText(),
+                            find_exp
+                        ))
+                        return msg_as_string
+                groups.update(gd)
+
+            # Remove '$' not preceded by '\'
+            exp = re_sub(r'(?<!\\)\$', '', ph_target_exp)
+            flags = re_match('\(\?[Limuxs]{1,6}\)', ph_target_exp)
+            if flags is not None and 'x' in flags.group(0):
+                exp += '\n'
+
+            groups_exp = ''.join(['(?P<{}>{})'.format(group_name, group_match) for group_name, group_match in groups.items()])
+            dyn_values = ''.join(groups.values())
+
+            # No need for another try/except around this re.compile(),
+            # as ph_target_exp was already checked when compiling match_exp earlier.
+            # match_exp = re_compile(exp + groups_exp + end)
+            match_exp = re_compile(exp + groups_exp)
+            self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
+
+        subsets = ph_matchnum_txt.replace(' ', '').split(',')
+        match_indices = []
+        for subset in subsets:
+            try:
+                if ':' in subset:
+                    sliceindex = subset.index(':')
+                    start = int(subset[:sliceindex   ])
+                    end   = int(subset[ sliceindex+1:])
                     if start < 0:
                         start = match_count + start
                     if end < 0:
@@ -478,58 +477,57 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     for match_index in range(start, end):
                         match_indices.append(match_index)
                 else:
-                    match_index = int(v)
+                    match_index = int(subset)
                     if match_index < 0:
                         match_index = match_count + match_index
                     match_indices.append(match_index)
-            except ValueError:
-                self.logger.exception('Invalid match index or slice detected on tab "{}". Ignoring. Details below:'.format(
-                    tab.namepane_txtfield.getText()))
+            except ValueError as e:
+                self.logger.error(
+                    'Ignoring invalid match index or slice on tab "{}" due to {}'.format(
+                        tab.namepane_txtfield.getText(),
+                        e
+                    )
+                )
                 continue
 
-        self.logger.debug('Unfiltered match indices: {}'.format(match_indices))
         match_indices = set(sorted([m for m in match_indices if m < match_count]))
-        self.logger.debug('Filtered match indices: {}'.format(match_indices))
+        self.logger.debug('match_indices: {}'.format(match_indices))
 
-        if not match_indices:
-            self.logger.warning('No matches found at any specified indices!')
+        # Using findall_exp to avoid including capture groups in the result.
+        message_parts = re_split(findall_exp, msg_as_string)
+        self.logger.debug('message_parts: {}'.format(message_parts))
 
-        substr_indices = list()
-        for match_value in match_values:
-            # Escaping match_value with re.escape() because at this point we need to scan for literals,
-            # since match_values was already built from the supplied regular expressions.
-            substr_indices.extend([m.start() for m in finditer(escape(match_value), original_msg)])
-        substr_indices = sorted(set(substr_indices))
+        # The above strategy to use re.split() in order to enable the usage of match_indices
+        # ends up breaking non-capturing groups. At this point, however, we can safely remove
+        # all non-capturing groups and everything will be peachy.
+        ncg_exp = re_compile('\(\?[^P].+?\)')
+        if re_search(ncg_exp, match_exp.pattern) is not None:
+            match_exp = re_compile(ncg_exp.sub('', match_exp.pattern))
+            if flags is not None:
+                match_exp = re_compile(flags.group(0) + match_exp.pattern)
+            self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
 
-        global_mod_count = 0
-        modifications = {}
-        for match_index in match_indices:
-            match_value = match_values[match_index]
-            substr_index = substr_indices[match_index]
-            for value_modified, times_modified in modifications.items():
-                substr_index += (len(replace_value) - len(value_modified)) * times_modified
-            if tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_INSERT:
-                insert_at = substr_index + len(match_value) + (len(match_value) * global_mod_count)
-                msg_as_string = msg_as_string[:insert_at] \
-                                + replace_value           \
-                                + msg_as_string[insert_at:]
-                self.logger.info('Match index [{}]: appended "{}" to "{}"'.format(
-                    match_index, replace_value, match_value))
-            elif tab.param_handl_combo_action.getSelectedItem() == tab.PARAM_HANDL_COMBO_ACTION_REPLACE:
-                msg_as_string = msg_as_string[:substr_index] \
-                                + replace_value              \
-                                + msg_as_string[substr_index + len(match_value):]
-                self.logger.info('Match index [{}]: matched "{}", replaced with "{}"'.format(
-                    match_index, match_value, replace_value))
-            global_mod_count += 1
-            if match_value in modifications:
-                modifications[match_value] += 1
+        modified_message  = ''
+        remaining_indices = list(match_indices)
+        for part_index, message_part in enumerate(message_parts):
+            if remaining_indices and part_index == remaining_indices[0]:
+                try:
+                    final_value = match_exp.sub(replace_exp, all_matches[part_index] + dyn_values)
+                except (re_error, IndexError) as e:
+                    self.logger.error(exc_invalid_regex.format(match_exp.pattern + ' or expression ' + replace_exp, e))
+                    return msg_as_string
+                self.logger.debug('Found:\n{}\nreplaced using:\n{}\nin string:\n{}'.format(
+                    match_exp.pattern,
+                    replace_exp,
+                    all_matches[part_index] + dyn_values
+                ))
+                final_value = message_part + final_value
+                modified_message += final_value
+                remaining_indices.pop(0)
+            elif part_index < match_count:
+                modified_message += message_part + all_matches[part_index]
             else:
-                modifications[match_value] = 1
+                modified_message += message_part
 
-        return msg_as_string
-
-########################################################################################################################
-#  End CustomParameterHandler.py
-########################################################################################################################
+        return modified_message
 
