@@ -38,15 +38,25 @@ class CPH_Help:
         -1,-2&nbsp;&nbsp; - targets the last and penultimate matches<br>
         0:-1&nbsp;&nbsp;&nbsp; - targets all but the last match
         </html>""",
-        'https://example.com/?TODO'
+        'https://github.com/elespike/burp-cph/wiki/04.-Targeting-matches'
     )
 
     named_groups = HelpPopup(
         'Inserting a dynamic value using named groups',
         """<html>
-        TODO
+        In the expression field shown in step 4,<br>
+        define named groups for values you wish to extract<br>
+        from the appropriate response.<br>
+        <br>
+        For example, (?P&lt;mygroup&gt;[Ss]ome.[Rr]eg[Ee]x)<br>
+        <br>
+        Then, in the expression field shown in step 3,<br>
+        ensure that the RegEx box is selected,<br>
+        and use named group references to access your extracted values.<br>
+        <br>
+        In line with the above example, \\g&lt;mygroup&gt;
         </html>""",
-        'https://example.com/?TODO'
+        'https://github.com/elespike/burp-cph/wiki/05.-Issuing-a-separate-request-to-use-a-dynamic-value-from-its-response'
     )
 
     extract_single = HelpPopup(
@@ -61,7 +71,7 @@ class CPH_Help:
         The <b>Issue</b> button may be used to test the request,<br>
         helping ensure a proper response.
         </html>""",
-        'https://example.com/?TODO'
+        'https://github.com/elespike/burp-cph/wiki/05.-Issuing-a-separate-request-to-use-a-dynamic-value-from-its-response'
     )
 
     extract_macro = HelpPopup(
@@ -76,7 +86,7 @@ class CPH_Help:
         Finally, craft a RegEx to extract the desired value<br>
         from the final Macro response.
         </html>""",
-        'https://example.com/?TODO'
+        'https://github.com/elespike/burp-cph/wiki/07.-Extracting-replace-value-from-final-macro-response'
     )
 
     extract_cached = HelpPopup(
@@ -94,7 +104,7 @@ class CPH_Help:
         Note that disabled tabs will still cache HTTP messages<br>
         and therefore can be used as a mechanism for value extraction.
         </html>""",
-        'https://example.com/?TODO'
+        'https://github.com/elespike/burp-cph/wiki/08.-Utilizing-cached-responses'
     )
 
     def __init__(self):

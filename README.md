@@ -33,7 +33,7 @@ New tabs are enabled by default but require a valid configuration in order to ha
 
 Leftmost tabs will be processed first; therefore, tab order may be important, especially when extracting values from cached responses.
 
-Visit the Wiki to learn more about [utilizing cached responses](https://github.com/elespike/burp-cph/wiki/8.-Utilizing-cached-responses).
+Visit the Wiki to learn more about [utilizing cached responses](https://github.com/elespike/burp-cph/wiki/08.-Utilizing-cached-responses).
 
 ### Tab configuration at a glance
 

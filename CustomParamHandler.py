@@ -13,6 +13,7 @@ from re import (
     error    as re_error   ,
     findall  as re_findall ,
     finditer as re_finditer,
+    match    as re_match   ,
     search   as re_search  ,
     split    as re_split   ,
     sub      as re_sub     ,
@@ -446,19 +447,20 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                         return msg_as_string
                 groups.update(gd)
 
-            exp = ph_target_exp
-            parens = ''
-            while exp.endswith(')'):
-                exp = exp[:-1]
-                parens += ')'
+            # Remove '$' not preceded by '\'
+            exp = re_sub(r'(?<!\\)\$', '', ph_target_exp)
+            flags = re_match('\(\?[Limuxs]{1,6}\)', ph_target_exp)
+            if flags is not None and 'x' in flags.group(0):
+                exp += '\n'
 
             groups_exp = ''.join(['(?P<{}>{})'.format(group_name, group_match) for group_name, group_match in groups.items()])
             dyn_values = ''.join(groups.values())
 
             # No need for another try/except around this re.compile(),
             # as ph_target_exp was already checked when compiling match_exp earlier.
-            match_exp = re_compile(exp + groups_exp + parens)
-            self.logger.debug('match_exp adjusted to: {}'.format(match_exp.pattern))
+            # match_exp = re_compile(exp + groups_exp + end)
+            match_exp = re_compile(exp + groups_exp)
+            self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
 
         subsets = ph_matchnum_txt.replace(' ', '').split(',')
         match_indices = []
@@ -501,19 +503,25 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         ncg_exp = re_compile('\(\?[^P].+?\)')
         if re_search(ncg_exp, match_exp.pattern) is not None:
             match_exp = re_compile(ncg_exp.sub('', match_exp.pattern))
-            self.logger.debug('match_exp adjusted to: {}'.format(match_exp.pattern))
+            if flags is not None:
+                match_exp = re_compile(flags.group(0) + match_exp.pattern)
+            self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
 
         modified_message  = ''
         remaining_indices = list(match_indices)
         for part_index, message_part in enumerate(message_parts):
             if remaining_indices and part_index == remaining_indices[0]:
                 try:
-                    final_value = match_exp.sub(replace_exp, all_matches[part_index])
+                    final_value = match_exp.sub(replace_exp, all_matches[part_index] + dyn_values)
                 except (re_error, IndexError) as e:
                     self.logger.error(exc_invalid_regex.format(match_exp.pattern + ' or expression ' + replace_exp, e))
                     return msg_as_string
-                self.logger.debug('Found {}, replaced using {} in {}'.format(match_exp.pattern, replace_exp, repr(all_matches[part_index])))
-                final_value = message_part + final_value + dyn_values
+                self.logger.debug('Found:\n{}\nreplaced using:\n{}\nin string:\n{}'.format(
+                    match_exp.pattern,
+                    replace_exp,
+                    all_matches[part_index] + dyn_values
+                ))
+                final_value = message_part + final_value
                 modified_message += final_value
                 remaining_indices.pop(0)
             elif part_index < match_count:

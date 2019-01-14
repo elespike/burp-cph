@@ -930,8 +930,9 @@ class ConfigTabTitle(JPanel):
 
 class ConfigTabNameField(JTextField, KeyListener):
     def __init__(self, tab_label):
-        self.setColumns(25)
+        self.setColumns(32)
         self.setText(ConfigTab.TAB_NEW_NAME)
+        self.setFont(ConfigTab.FIELD_FONT)
         self.addKeyListener(self)
         self.tab_label = tab_label
 
@@ -979,7 +980,8 @@ class UndoableKeyListener(KeyListener):
 
 
 class ConfigTab(SubTab):
-    TXT_FIELD_SIZE = 45
+    TXT_FIELD_SIZE = 64
+    FIELD_FONT     = Font(Font.MONOSPACED, Font.PLAIN, 13)
     REGEX          = 'RegEx'
     TAB_NEW_NAME   = 'Unconfigured'
 
@@ -1029,7 +1031,7 @@ class ConfigTab(SubTab):
     PARAM_HANDL_ACTION       = ' 3) Replace each target with this expression:'
 
     PARAM_HANDL_DYNAMIC_CHECKBOX    = 'The value I need is dynamic'
-    PARAM_HANDL_DYNAMIC_DESCRIPTION = '4) In the expression above, use named RegEx groups to insert the following:'
+    PARAM_HANDL_DYNAMIC_DESCRIPTION = '4) In the expression above, refer to the named RegEx groups you\'ll define below in order to insert:'
 
     PARAM_HANDL_COMBO_EXTRACT_SINGLE  = 'a value returned by issuing a single request'
     PARAM_HANDL_COMBO_EXTRACT_MACRO   = 'a value returned by issuing a sequence of requests'
@@ -1040,6 +1042,7 @@ class ConfigTab(SubTab):
         PARAM_HANDL_COMBO_EXTRACT_CACHED,
     ]
     PARAM_HANDL_BTN_ISSUE           = 'Issue'
+    PARAM_HANDL_EXTRACT_STATIC      = 'When "RegEx" is enabled here, backslash escape sequences and group references will be processed.'
     PARAM_HANDL_EXTRACT_SINGLE      = 'the request in the left pane, then extract the value from its response with this expression:'
     PARAM_HANDL_EXTRACT_MACRO       = 'When invoked from a Session Handling Rule, CPH will extract the value from the final macro response with this expression:'
     PARAM_HANDL_EXTRACT_CACHED_PRE  = 'Extract the value from'
@@ -1123,10 +1126,10 @@ class ConfigTab(SubTab):
         self.param_handl_dynamic_pane = JPanel(GridBagLayout())
         self.param_handl_dynamic_pane.setVisible(False)
 
-        self.param_handl_exp_pane_extract_static = self.create_expression_pane(checked=True, enabled=False)
-        self.param_handl_exp_pane_extract_single = self.create_expression_pane(checked=True, enabled=False)
-        self.param_handl_exp_pane_extract_macro  = self.create_expression_pane(label=self.PARAM_HANDL_EXTRACT_MACRO, checked=True, enabled=False)
-        self.param_handl_exp_pane_extract_cached = self.create_expression_pane(checked=True, enabled=False)
+        self.param_handl_exp_pane_extract_static = self.create_expression_pane(label=self.PARAM_HANDL_EXTRACT_STATIC, multiline=False)
+        self.param_handl_exp_pane_extract_single = self.create_expression_pane(enabled=False)
+        self.param_handl_exp_pane_extract_macro  = self.create_expression_pane(label=self.PARAM_HANDL_EXTRACT_MACRO, enabled=False)
+        self.param_handl_exp_pane_extract_cached = self.create_expression_pane(enabled=False)
 
         self.param_handl_issuer_socket_pane = self.create_socket_pane()
 
@@ -1302,10 +1305,12 @@ class ConfigTab(SubTab):
     def initialize_req_resp(self):
         return [], MainTab._cph.helpers.stringToBytes(''.join([' \r\n' for i in range(6)]))
 
-    def create_expression_pane(self, label=None, checked=False, enabled=True):
-        field = JTextField()
+    def create_expression_pane(self, label=None, multiline=True, checked=True, enabled=True):
+        field = JTextArea()
+        if not multiline:
+            field = JTextField()
         field.setColumns(self.TXT_FIELD_SIZE)
-
+        field.setFont(self.FIELD_FONT)
         field.addKeyListener(UndoableKeyListener(field))
 
         box = JCheckBox(self.REGEX, checked)
@@ -1327,11 +1332,13 @@ class ConfigTab(SubTab):
 
     def create_socket_pane(self):
         host_field = JTextField()
-        host_field.setColumns(int(self.TXT_FIELD_SIZE * 0.75))
+        host_field.setColumns(self.TXT_FIELD_SIZE)
         host_field.setText('host')
+        host_field.setFont(self.FIELD_FONT)
         host_field.addKeyListener(UndoableKeyListener(host_field))
 
-        port_spinner = JSpinner(SpinnerNumberModel(80, 0, 65535, 1))
+        port_spinner = JSpinner(SpinnerNumberModel(80, 1, 65535, 1))
+        port_spinner.setFont(self.FIELD_FONT)
         port_spinner.setEditor(JSpinner.NumberEditor(port_spinner, '#'))
 
         socket_pane = JPanel(FlowLayout(FlowLayout.LEADING))
