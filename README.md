@@ -6,14 +6,15 @@
 
 ### Manual installation
 
-1. Download and extract the latest release to a desired directory (let's call it *my_dir*).
+1. Download the [latest release](https://github.com/elespike/burp-cph/releases) file; e.g., `CustomParameterHandler_3.0.py`
 2. Under _Extender_ > _Options_ > _Python Environment_, point Burp to the location of your copy of Jython's standalone .jar file.
-3. Immediately underneath, configure Burp to use *my_dir* for loading modules.
-4. Finally, add CustomParamHandler.py in _Extender_ > _Extensions_.
+  a. If you don't already have Jython's standalone .jar file, [download it here](http://www.jython.org/downloads.html).
+3. Finally, add `CustomParamHandler_3.0.py` in _Extender_ > _Extensions_.
 
 ### Installation from the BApp store
 
 1. Under _Extender_ > _Options_ > _Python Environment_, point Burp to the location of your copy of Jython's standalone .jar file.
+  a. If you don't already have Jython's standalone .jar file, [download it here](http://www.jython.org/downloads.html).
 2. Find and select _Custom Parameter Handler_ within the _Extender_ > _BApp Store_ tab, then click the _Install_ button.
 
 ### Adding configuration tabs

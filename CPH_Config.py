@@ -1033,9 +1033,9 @@ class ConfigTab(SubTab):
     PARAM_HANDL_DYNAMIC_CHECKBOX    = 'The value I need is dynamic'
     PARAM_HANDL_DYNAMIC_DESCRIPTION = '4) In the expression above, refer to the named RegEx groups you\'ll define below in order to insert:'
 
-    PARAM_HANDL_COMBO_EXTRACT_SINGLE  = 'a value returned by issuing a single request'
-    PARAM_HANDL_COMBO_EXTRACT_MACRO   = 'a value returned by issuing a sequence of requests'
-    PARAM_HANDL_COMBO_EXTRACT_CACHED  = 'a value in the cached response of a previous CPH tab'
+    PARAM_HANDL_COMBO_EXTRACT_SINGLE  = 'values returned by issuing a single request'
+    PARAM_HANDL_COMBO_EXTRACT_MACRO   = 'values returned by issuing a sequence of requests'
+    PARAM_HANDL_COMBO_EXTRACT_CACHED  = 'values in the cached response of a previous CPH tab'
     PARAM_HANDL_COMBO_EXTRACT_CHOICES = [
         PARAM_HANDL_COMBO_EXTRACT_SINGLE,
         PARAM_HANDL_COMBO_EXTRACT_MACRO ,
