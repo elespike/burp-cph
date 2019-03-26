@@ -3,7 +3,7 @@ ExtensionType: 2
 Name: Custom Parameter Handler
 RepoName: custom-parameter-handler
 ScreenVersion: 3.0
-SerialVersion: 1
+SerialVersion: 3
 MinPlatformVersion: 0
 ProOnly: False
 Author: @elespike, @eth0up
