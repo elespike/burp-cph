@@ -1,3 +1,5 @@
+import re
+
 from datetime import datetime as dt
 from sys      import stdout
 from urllib   import quote
@@ -8,23 +10,15 @@ from logging import (
     StreamHandler,
     getLogger    ,
 )
-from re import (
-    compile  as re_compile ,
-    error    as re_error   ,
-    findall  as re_findall ,
-    finditer as re_finditer,
-    match    as re_match   ,
-    search   as re_search  ,
-    split    as re_split   ,
-    sub      as re_sub     ,
-)
 
-from CPH_Config  import MainTab
-from burp        import IBurpExtender
-from burp        import IContextMenuFactory
-from burp        import IExtensionStateListener
-from burp        import IHttpListener
-from burp        import ISessionHandlingAction
+from CPH_Config import MainTab
+
+from burp import IBurpExtender
+from burp import IContextMenuFactory
+from burp import IExtensionStateListener
+from burp import IHttpListener
+from burp import ISessionHandlingAction
+
 from javax.swing import JMenuItem
 
 
@@ -150,7 +144,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
         content_length = len(message_bytes) - message_info.getBodyOffset()
         msg_as_string = self.helpers.bytesToString(message_bytes)
-        msg_as_string = re_sub(
+        msg_as_string = re.sub(
             'Content-Length: \d+\r\n',
             'Content-Length: {}\r\n'.format(content_length),
             msg_as_string,
@@ -331,7 +325,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         if rms_scope_all:
             return True
         elif rms_scope_some and rms_scope_exp:
-            regexp = re_compile(rms_scope_exp)
+            regexp = re.compile(rms_scope_exp)
             if regexp.search(msg_as_string):
                 return True
         else:
@@ -362,8 +356,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         )
 
         try:
-            match_exp = re_compile(ph_target_exp)
-        except re_error as e:
+            match_exp = re.compile(ph_target_exp)
+        except re.error as e:
             self.logger.error(exc_invalid_regex.format(ph_target_exp, e))
             return msg_as_string
 
@@ -373,13 +367,13 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         # which enables the logic for granular control over which match indices to target.
 
         # Removing named groups to normalize capturing groups.
-        findall_exp = re_sub('\?P<.+?>', '', ph_target_exp)
+        findall_exp = re.sub('\?P<.+?>', '', ph_target_exp)
         # Removing capturing groups to search for full matches only.
-        findall_exp = re_sub(r'(?<!\\)\(([^?]*?)(?<!\\)\)', '\g<1>', findall_exp)
-        findall_exp = re_compile(findall_exp)
+        findall_exp = re.sub(r'(?<!\\)\(([^?]*?)(?<!\\)\)', '\g<1>', findall_exp)
+        findall_exp = re.compile(findall_exp)
         self.logger.debug('findall_exp: {}'.format(findall_exp.pattern))
 
-        all_matches = re_findall(findall_exp, msg_as_string)
+        all_matches = re.findall(findall_exp, msg_as_string)
         self.logger.debug('all_matches: {}'.format(all_matches))
 
         match_count = len(all_matches)
@@ -421,8 +415,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
 
             try:
                 # Making a list to enable multiple iterations.
-                matches = list(re_finditer(find_exp, target_txt))
-            except re_error as e:
+                matches = list(re.finditer(find_exp, target_txt))
+            except re.error as e:
                 self.logger.error(exc_invalid_regex.format(ph_extract_macro_exp, e))
                 return msg_as_string
 
@@ -448,18 +442,20 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 groups.update(gd)
 
             # Remove '$' not preceded by '\'
-            exp = re_sub(r'(?<!\\)\$', '', ph_target_exp)
-            flags = re_match('\(\?[Limuxs]{1,6}\)', ph_target_exp)
+            exp = re.sub(r'(?<!\\)\$', '', ph_target_exp)
+            flags = re.match('\(\?[Limuxs]{1,6}\)', ph_target_exp)
             if flags is not None and 'x' in flags.group(0):
                 exp += '\n'
 
-            groups_exp = ''.join(['(?P<{}>{})'.format(group_name, group_match) for group_name, group_match in groups.items()])
+            groups_exp = ''.join([
+                '(?P<{}>{})'.format(group_name, re.escape(group_match))
+                for group_name, group_match in groups.items()
+            ])
             dyn_values = ''.join(groups.values())
 
             # No need for another try/except around this re.compile(),
             # as ph_target_exp was already checked when compiling match_exp earlier.
-            # match_exp = re_compile(exp + groups_exp + end)
-            match_exp = re_compile(exp + groups_exp)
+            match_exp = re.compile(exp + groups_exp)
             self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
 
         subsets = ph_matchnum_txt.replace(' ', '').split(',')
@@ -494,17 +490,17 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         self.logger.debug('match_indices: {}'.format(match_indices))
 
         # Using findall_exp to avoid including capture groups in the result.
-        message_parts = re_split(findall_exp, msg_as_string)
+        message_parts = re.split(findall_exp, msg_as_string)
         self.logger.debug('message_parts: {}'.format(message_parts))
 
         # The above strategy to use re.split() in order to enable the usage of match_indices
         # ends up breaking non-capturing groups. At this point, however, we can safely remove
         # all non-capturing groups and everything will be peachy.
-        ncg_exp = re_compile('\(\?[^P].+?\)')
-        if re_search(ncg_exp, match_exp.pattern) is not None:
-            match_exp = re_compile(ncg_exp.sub('', match_exp.pattern))
+        ncg_exp = re.compile('\(\?[^P].+?\)')
+        if re.search(ncg_exp, match_exp.pattern) is not None:
+            match_exp = re.compile(ncg_exp.sub('', match_exp.pattern))
             if flags is not None:
-                match_exp = re_compile(flags.group(0) + match_exp.pattern)
+                match_exp = re.compile(flags.group(0) + match_exp.pattern)
             self.logger.debug('match_exp adjusted to:\n{}'.format(match_exp.pattern))
 
         modified_message  = ''
@@ -513,7 +509,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             if remaining_indices and part_index == remaining_indices[0]:
                 try:
                     final_value = match_exp.sub(replace_exp, all_matches[part_index] + dyn_values)
-                except (re_error, IndexError) as e:
+                except (re.error, IndexError) as e:
                     self.logger.error(exc_invalid_regex.format(match_exp.pattern + ' or expression ' + replace_exp, e))
                     return msg_as_string
                 self.logger.debug('Found:\n{}\nreplaced using:\n{}\nin string:\n{}'.format(
