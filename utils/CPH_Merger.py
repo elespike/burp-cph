@@ -1,5 +1,5 @@
 from os  import path, chdir, SEEK_CUR
-from sys import argv
+from sys import argv, platform
 
 
 chdir(path.dirname(path.abspath(argv[0])))
@@ -13,7 +13,9 @@ def write_imports(opened_file):
     line = opened_file.readline()
     while line:
         if line.startswith('class'):
-            opened_file.seek((len(line)+1) * -1, SEEK_CUR)
+            opened_file.seek(((len(line)+1)\
+                    if "win" in platform.lower()\
+                    else len(line))*-1, SEEK_CUR)
             merged_file.write('\n')
             break
         if line.strip().startswith('from CPH_Config')\
