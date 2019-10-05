@@ -29,12 +29,11 @@ def write_imports(source_file, destination_file):
 chdir(path.dirname(path.abspath(__file__)))
 
 try:
-    source_files = [
-        open('../CPH_Config.py'        , 'rb'),
-        open('../CPH_Help.py'          , 'rb'),
-        open('../CustomParamHandler.py', 'rb'),
-        open('../tinyweb.py'           , 'rb'),
-    ]
+    source_files = list()
+    source_files.append(open('../CPH_Config.py'        , 'rb'))
+    source_files.append(open('../CPH_Help.py'          , 'rb'))
+    source_files.append(open('../CustomParamHandler.py', 'rb'))
+    source_files.append(open('../tinyweb.py'           , 'rb'))
 
     with open('../CustomParamHandler_merged.py', 'wb') as destination_file:
         for source_file in source_files:
@@ -47,6 +46,6 @@ try:
 
 finally:
     for source_file in source_files:
-        if not source_file.closed:
+        if hasattr(source_file, 'closed') and not source_file.closed:
             source_file.close()
 
