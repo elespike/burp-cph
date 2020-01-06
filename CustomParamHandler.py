@@ -369,7 +369,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         # Removing named groups to normalize capturing groups.
         findall_exp = re.sub('\?P<.+?>', '', ph_target_exp)
         # Removing capturing groups to search for full matches only.
-        findall_exp = re.sub(r'(?<!\\)\(([^?]*?)(?<!\\)\)', '\g<1>', findall_exp)
+        findall_exp = re.sub(r'(?<!\\)\(([^?]*?\??)(?<!\\)\)', '\g<1>', findall_exp)
         findall_exp = re.compile(findall_exp)
         self.logger.debug('findall_exp: {}'.format(findall_exp.pattern))
 
