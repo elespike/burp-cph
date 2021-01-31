@@ -654,7 +654,8 @@ class OptionsTab(SubTab, ChangeListener):
             self.emv.setState(JFrame.NORMAL)
             self.emv.toFront()
             for emv_tab in self.emv_tab_pane.getComponents():
-                emv_tab.viewer.setDividerLocation(0.5)
+                if hasattr(emv_tab, 'viewer'):
+                    emv_tab.viewer.setDividerLocation(0.5)
 
         if c == self.BTN_EXPORTCONFIG:
             tabcount = 0
@@ -854,7 +855,7 @@ class EMVTab(JSplitPane, ListSelectionListener):
         self.original_field.setMessage(original_msg, is_request)
         self.modified_field.setMessage(modified_msg, is_request)
 
-        self.diffpane.setTopComponent(self.diff_field.getComponent().getComponentAt(0))
+        self.diffpane.setTopComponent(self.diff_field.getComponent())
         self.diffpane.setDividerLocation(dl)
         self.updating = False
 
@@ -1367,12 +1368,17 @@ class ConfigTab(SubTab):
             child_pane = pane.getComponent(1)
         return child_pane.getComponent(component_index)
 
-    def get_exp_pane_expression(self, pane):
+    def get_exp_pane_expression(self, pane, only_backslashes=False):
         expression = self.get_exp_pane_component(pane, ConfigTab.TXT_FIELD_INDEX).getText()
         # If the RegEx checkbox is unchecked, run re.escape()
         # in order to treat it like a literal string.
         if not self.get_exp_pane_component(pane, ConfigTab.CHECKBOX_INDEX).isSelected():
-            expression = re_escape(expression)
+            if only_backslashes:
+                # If "expression" is to be used as the replacement string in re.sub(),
+                # only backslashes should be escaped.
+                expression = expression.replace('\\', r'\\')
+            else:
+                expression = re_escape(expression)
         return expression
 
     def get_exp_pane_config(self, pane):

@@ -325,7 +325,11 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         if rms_scope_all:
             return True
         elif rms_scope_some and rms_scope_exp:
-            regexp = re.compile(rms_scope_exp)
+            try:
+                regexp = re.compile(rms_scope_exp)
+            except re.error as e:
+                self.logger.error(exc_invalid_regex.format(rms_scope_exp, e))
+                return msg_as_string
             if regexp.search(msg_as_string):
                 return True
         else:
@@ -338,7 +342,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         ph_matchnum_txt = tab.param_handl_txtfield_match_indices.getText()
 
         ph_target_exp         = tab.get_exp_pane_expression(tab.param_handl_exp_pane_target        )
-        ph_extract_static_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_static)
+        ph_extract_static_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_static, only_backslashes=True)
         ph_extract_single_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_single)
         ph_extract_macro_exp  = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_macro )
         ph_extract_cached_exp = tab.get_exp_pane_expression(tab.param_handl_exp_pane_extract_cached)
@@ -386,8 +390,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             )
             return msg_as_string
 
-        matches     = list()
-        dyn_values  = ''
+        matches = list()
+        dyn_values = ''
         replace_exp = ph_extract_static_exp
 
         if tab.param_handl_dynamic_chkbox.isSelected():
@@ -412,18 +416,19 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     )
                 )
                 return msg_as_string
+            else:
+                try:
+                    find_exp = re.compile(find_exp)
+                except re.error as e:
+                    self.logger.error(exc_invalid_regex.format(find_exp, e))
+                    return msg_as_string
 
-            try:
-                # Making a list to enable multiple iterations.
-                matches = list(re.finditer(find_exp, target_txt))
-            except re.error as e:
-                self.logger.error(exc_invalid_regex.format(ph_extract_macro_exp, e))
-                return msg_as_string
-
+            # Making a list to enable multiple iterations.
+            matches = list(re.finditer(find_exp, target_txt))
             if not matches:
                 self.logger.warning('Skipping tab "{}" because this expression found no matches: {}'.format(
                     tab.namepane_txtfield.getText(),
-                    find_exp
+                    find_exp.pattern
                 ))
                 return msg_as_string
 
@@ -436,7 +441,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                     if k in groups_keys:
                         self.logger.warning('Skipping tab "{}" because this expression found ambiguous matches: {}'.format(
                             tab.namepane_txtfield.getText(),
-                            find_exp
+                            find_exp.pattern
                         ))
                         return msg_as_string
                 groups.update(gd)
