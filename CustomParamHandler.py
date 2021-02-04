@@ -104,7 +104,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 continue
 
     def issue_request(self, tab):
-        tab.request = tab.param_handl_request_editor.getMessage()
+        tab.request = tab.param_handl_request_editor.getText()
 
         issuer_config = tab.get_socket_pane_config(tab.param_handl_issuer_socket_pane)
         host  = issuer_config.host
@@ -112,7 +112,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
         https = issuer_config.https
 
         tab.request = self.update_content_length(tab.request, True)
-        tab.param_handl_request_editor.setMessage(tab.request, True)
+        tab.param_handl_request_editor.setText(tab.request)
 
         try:
             httpsvc = self.helpers.buildHttpService(host, port, https)
@@ -123,7 +123,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 httpsvc.getPort()
             ))
             if response_bytes:
-                tab.param_handl_response_editor.setMessage(response_bytes, False)
+                tab.param_handl_response_editor.setText(response_bytes)
                 tab.response = response_bytes
                 self.logger.debug('Got response!')
         # Generic except because misc. Java exceptions might occur.
@@ -134,7 +134,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                 port
             ))
             tab.response = self.helpers.stringToBytes('Error! See extension output for details.')
-            tab.param_handl_response_editor.setMessage(tab.response, False)
+            tab.param_handl_response_editor.setText(tab.response)
 
     def update_content_length(self, message_bytes, is_request):
         if is_request:
@@ -301,8 +301,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
                         break
                     item = previous_tab.namepane_txtfield.getText()
                     if item == selected_item:
-                        working_tab.param_handl_cached_req_viewer .setMessage(previous_tab.cached_request , True)
-                        working_tab.param_handl_cached_resp_viewer.setMessage(previous_tab.cached_response, False)
+                        working_tab.param_handl_cached_req_viewer .setText(previous_tab.cached_request )
+                        working_tab.param_handl_cached_resp_viewer.setText(previous_tab.cached_response)
 
     def is_in_cph_scope(self, msg_as_string, is_request, tab):
         rms_scope_all  = tab.msg_mod_combo_scope.getSelectedItem() == tab.MSG_MOD_COMBO_SCOPE_ALL
@@ -399,7 +399,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, IExtensionStateListener, 
             selected_item = tab.param_handl_combo_extract.getSelectedItem()
 
             if selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_CACHED:
-                find_exp, target_txt = ph_extract_cached_exp, tab.param_handl_cached_resp_viewer.getMessage()
+                find_exp, target_txt = ph_extract_cached_exp, tab.param_handl_cached_resp_viewer.getText()
                 target_txt = self.helpers.bytesToString(target_txt)
 
             elif selected_item == tab.PARAM_HANDL_COMBO_EXTRACT_SINGLE:

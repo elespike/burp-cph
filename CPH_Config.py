@@ -773,9 +773,12 @@ class EMVTab(JSplitPane, ListSelectionListener):
         table_pane.setViewportView(self.table)
         table_pane.getVerticalScrollBar().setUnitIncrement(16)
 
-        self.diff_field     = MainTab._cph.callbacks.createMessageEditor(None, False)
-        self.original_field = MainTab._cph.callbacks.createMessageEditor(None, False)
-        self.modified_field = MainTab._cph.callbacks.createMessageEditor(None, False)
+        self.diff_field     = MainTab._cph.callbacks.createTextEditor()
+        self.original_field = MainTab._cph.callbacks.createTextEditor()
+        self.modified_field = MainTab._cph.callbacks.createTextEditor()
+        self.diff_field    .setEditable(False)
+        self.original_field.setEditable(False)
+        self.modified_field.setEditable(False)
 
         self.viewer = JSplitPane()
         self.viewer.setLeftComponent(self.original_field.getComponent())
@@ -850,10 +853,9 @@ class EMVTab(JSplitPane, ListSelectionListener):
                 text += '\n'
 
         dl = self.diffpane.getDividerLocation()
-        is_request = self.table_model.rows[index][1] == 'Request'
-        self.diff_field    .setMessage(text        , is_request)
-        self.original_field.setMessage(original_msg, is_request)
-        self.modified_field.setMessage(modified_msg, is_request)
+        self.diff_field    .setText(text        )
+        self.original_field.setText(original_msg)
+        self.modified_field.setText(modified_msg)
 
         self.diffpane.setTopComponent(self.diff_field.getComponent())
         self.diffpane.setDividerLocation(dl)
@@ -1147,15 +1149,17 @@ class ConfigTab(SubTab):
             self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.PORT_INDEX).setValue(httpsvc.getPort())
             self.get_socket_pane_component(self.param_handl_issuer_socket_pane, self.HTTPS_INDEX).setSelected(httpsvc.getProtocol() == 'https')
 
-        self.param_handl_request_editor  = MainTab._cph.callbacks.createMessageEditor(None, True)
-        self.param_handl_response_editor = MainTab._cph.callbacks.createMessageEditor(None, False)
-        self.param_handl_request_editor .setMessage(self.request , True)
-        self.param_handl_response_editor.setMessage(self.response, False)
+        self.param_handl_request_editor  = MainTab._cph.callbacks.createTextEditor()
+        self.param_handl_response_editor = MainTab._cph.callbacks.createTextEditor()
+        self.param_handl_request_editor .setText(self.request)
+        self.param_handl_response_editor.setText(self.response)
+        self.param_handl_response_editor.setEditable(False)
 
-        self.param_handl_cached_req_viewer  = MainTab._cph.callbacks.createMessageEditor(None, False)
-        self.param_handl_cached_resp_viewer = MainTab._cph.callbacks.createMessageEditor(None, False)
-        self.param_handl_cached_req_viewer .setMessage(self.cached_request , True)
-        self.param_handl_cached_resp_viewer.setMessage(self.cached_response, False)
+        self.param_handl_cached_req_viewer  = MainTab._cph.callbacks.createTextEditor()
+        self.param_handl_cached_resp_viewer = MainTab._cph.callbacks.createTextEditor()
+        self.param_handl_cached_req_viewer .setText(self.cached_request )
+        self.param_handl_cached_resp_viewer.setText(self.cached_response)
+        self.param_handl_cached_resp_viewer.setEditable(False)
 
         self.param_handl_cardpanel_static_or_extract = JPanel(FlexibleCardLayout())
 
@@ -1278,13 +1282,13 @@ class ConfigTab(SubTab):
             ),
             SubTab.CONFIG_MECHANISM(
                 'single_request',
-                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_request_editor.getMessage()),
-                lambda cv: self.param_handl_request_editor.setMessage(MainTab._cph.helpers.stringToBytes(cv), True)
+                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_request_editor.getText()),
+                lambda cv: self.param_handl_request_editor.setText(MainTab._cph.helpers.stringToBytes(cv))
             ),
             SubTab.CONFIG_MECHANISM(
                 'single_response',
-                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_response_editor.getMessage()),
-                lambda cv: self.param_handl_response_editor.setMessage(MainTab._cph.helpers.stringToBytes(cv), False)
+                lambda   : MainTab._cph.helpers.bytesToString(self.param_handl_response_editor.getText()),
+                lambda cv: self.param_handl_response_editor.setText(MainTab._cph.helpers.stringToBytes(cv))
             ),
             SubTab.CONFIG_MECHANISM(
                 'macro_expression',
@@ -1612,17 +1616,6 @@ class ConfigTab(SubTab):
 
         ConfigTab.move_tab(newtab, desired_index)
 
-    # def disable_cache_viewers(self):
-        # self.cached_request, self.cached_response = self.initialize_req_resp()
-        # self.param_handl_cached_req_viewer .setMessage(self.cached_request , False)
-        # self.param_handl_cached_resp_viewer.setMessage(self.cached_response, False)
-
-    # @staticmethod
-    # def disable_all_cache_viewers():
-        # for tab in MainTab.mainpane.getComponents():
-            # if isinstance(tab, ConfigTab):
-                # tab.disable_cache_viewers()
-
     def actionPerformed(self, e):
         c = e.getActionCommand()
 
@@ -1688,8 +1681,8 @@ class ConfigTab(SubTab):
                 req, resp = self.initialize_req_resp()
             if c in MainTab.get_config_tab_names():
                 req, resp = MainTab.get_config_tab_cache(c)
-            self.param_handl_cached_req_viewer .setMessage(req , True)
-            self.param_handl_cached_resp_viewer.setMessage(resp, False)
+            self.param_handl_cached_req_viewer .setText(req )
+            self.param_handl_cached_resp_viewer.setText(resp)
 
         if c == self.PARAM_HANDL_BTN_ISSUE:
             start_new_thread(MainTab._cph.issue_request, (self,))
